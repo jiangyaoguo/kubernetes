@@ -61,30 +61,30 @@ func (util *RBDUtil) MakeGlobalPDName(rbd rbd) string {
 	return makePDNameInternal(rbd.plugin.host, rbd.pool, rbd.image)
 }
 
-func (util *RBDUtil) AttachDisk(rbd rbd) error {
+func (util *RBDUtil) AttachDisk(b rbdBuilder) error {
 	var err error
-	devicePath := strings.Join([]string{"/dev/rbd", rbd.pool, rbd.image}, "/")
+	devicePath := strings.Join([]string{"/dev/rbd", b.pool, b.image}, "/")
 	exist := waitForPathToExist(devicePath, 1)
 	if !exist {
 		// modprobe
-		_, err = rbd.plugin.execCommand("modprobe", []string{"rbd"})
+		_, err = b.plugin.execCommand("modprobe", []string{"rbd"})
 		if err != nil {
 			return fmt.Errorf("rbd: failed to modprobe rbd error:%v", err)
 		}
 		// rbd map
-		l := len(rbd.mon)
+		l := len(b.mon)
 		// avoid mount storm, pick a host randomly
 		start := rand.Int() % l
 		// iterate all hosts until mount succeeds.
 		for i := start; i < start+l; i++ {
-			mon := rbd.mon[i%l]
+			mon := b.mon[i%l]
 			glog.V(1).Infof("rbd: map mon %s", mon)
-			if rbd.secret != "" {
-				_, err = rbd.plugin.execCommand("rbd",
-					[]string{"map", rbd.image, "--pool", rbd.pool, "--id", rbd.id, "-m", mon, "--key=" + rbd.secret})
+			if b.secret != "" {
+				_, err = b.plugin.execCommand("rbd",
+					[]string{"map", b.image, "--pool", b.pool, "--id", b.id, "-m", mon, "--key=" + b.secret})
 			} else {
-				_, err = rbd.plugin.execCommand("rbd",
-					[]string{"map", rbd.image, "--pool", rbd.pool, "--id", rbd.id, "-m", mon, "-k", rbd.keyring})
+				_, err = b.plugin.execCommand("rbd",
+					[]string{"map", b.image, "--pool", b.pool, "--id", b.id, "-m", mon, "-k", b.keyring})
 			}
 			if err == nil {
 				break
@@ -99,8 +99,8 @@ func (util *RBDUtil) AttachDisk(rbd rbd) error {
 		return errors.New("Could not map image: Timeout after 10s")
 	}
 	// mount it
-	globalPDPath := rbd.manager.MakeGlobalPDName(rbd)
-	mountpoint, err := rbd.mounter.IsMountPoint(globalPDPath)
+	globalPDPath := b.manager.MakeGlobalPDName(*b.rbd)
+	mountpoint, err := b.mounter.IsMountPoint(globalPDPath)
 	// in the first time, the path shouldn't exist and IsMountPoint is expected to get NotExist
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("rbd: %s failed to check mountpoint", globalPDPath)
@@ -113,25 +113,25 @@ func (util *RBDUtil) AttachDisk(rbd rbd) error {
 		return fmt.Errorf("rbd: failed to mkdir %s, error", globalPDPath)
 	}
 
-	if err = rbd.mounter.Mount(devicePath, globalPDPath, rbd.fsType, nil); err != nil {
-		err = fmt.Errorf("rbd: failed to mount rbd volume %s [%s] to %s, error %v", devicePath, rbd.fsType, globalPDPath, err)
+	if err = b.mounter.Mount(devicePath, globalPDPath, b.fsType, nil); err != nil {
+		err = fmt.Errorf("rbd: failed to mount rbd volume %s [%s] to %s, error %v", devicePath, b.fsType, globalPDPath, err)
 	}
 
 	return err
 }
 
-func (util *RBDUtil) DetachDisk(rbd rbd, mntPath string) error {
-	device, cnt, err := mount.GetDeviceNameFromMount(rbd.mounter, mntPath)
+func (util *RBDUtil) DetachDisk(c rbdCleaner, mntPath string) error {
+	device, cnt, err := mount.GetDeviceNameFromMount(c.mounter, mntPath)
 	if err != nil {
 		return fmt.Errorf("rbd detach disk: failed to get device from mnt: %s\nError: %v", mntPath, err)
 	}
-	if err = rbd.mounter.Unmount(mntPath); err != nil {
+	if err = c.mounter.Unmount(mntPath); err != nil {
 		return fmt.Errorf("rbd detach disk: failed to umount: %s\nError: %v", mntPath, err)
 	}
 	// if device is no longer used, see if can unmap
 	if cnt <= 1 {
 		// rbd unmap
-		_, err = rbd.plugin.execCommand("rbd", []string{"unmap", device})
+		_, err = c.plugin.execCommand("rbd", []string{"unmap", device})
 		if err != nil {
 			return fmt.Errorf("rbd: failed to unmap device %s:Error: %v", device, err)
 		}
