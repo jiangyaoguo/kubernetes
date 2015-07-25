@@ -93,13 +93,12 @@ func (plugin *iscsiPlugin) newBuilderInternal(spec *volume.Spec, podUID types.UI
 		iscsiDisk: &iscsiDisk{
 			podUID:  podUID,
 			volName: spec.Name,
-			portal:  iscsi.TargetPortal,
-			iqn:     iscsi.IQN,
-			lun:     lun,
 			manager: manager,
 			mounter: mounter,
 			plugin:  plugin},
-
+		portal:   iscsi.TargetPortal,
+		iqn:      iscsi.IQN,
+		lun:      lun,
 		fsType:   iscsi.FSType,
 		readOnly: iscsi.ReadOnly,
 	}, nil
@@ -128,9 +127,6 @@ func (plugin *iscsiPlugin) execCommand(command string, args []string) ([]byte, e
 type iscsiDisk struct {
 	volName string
 	podUID  types.UID
-	portal  string
-	iqn     string
-	lun     string
 	plugin  *iscsiPlugin
 	mounter mount.Interface
 	// Utility interface that provides API calls to the provider to attach/detach disks.
@@ -145,6 +141,9 @@ func (iscsi *iscsiDisk) GetPath() string {
 
 type iscsiDiskBuilder struct {
 	*iscsiDisk
+	portal   string
+	iqn      string
+	lun      string
 	readOnly bool
 	fsType   string
 }
@@ -162,7 +161,7 @@ func (b *iscsiDiskBuilder) SetUpAt(dir string) error {
 		glog.Errorf("iscsi: failed to setup")
 		return err
 	}
-	globalPDPath := b.manager.MakeGlobalPDName(*b.iscsiDisk)
+	globalPDPath := b.manager.MakeGlobalPDName(*b)
 	var options []string
 	if b.readOnly {
 		options = []string{"remount", "ro"}

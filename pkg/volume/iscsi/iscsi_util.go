@@ -74,8 +74,8 @@ func makePDNameInternal(host volume.VolumeHost, portal string, iqn string, lun s
 
 type ISCSIUtil struct{}
 
-func (util *ISCSIUtil) MakeGlobalPDName(iscsi iscsiDisk) string {
-	return makePDNameInternal(iscsi.plugin.host, iscsi.portal, iscsi.iqn, iscsi.lun)
+func (util *ISCSIUtil) MakeGlobalPDName(b iscsiDiskBuilder) string {
+	return makePDNameInternal(b.plugin.host, b.portal, b.iqn, b.lun)
 }
 
 func (util *ISCSIUtil) AttachDisk(b iscsiDiskBuilder) error {
@@ -100,7 +100,7 @@ func (util *ISCSIUtil) AttachDisk(b iscsiDiskBuilder) error {
 		}
 	}
 	// mount it
-	globalPDPath := b.manager.MakeGlobalPDName(*b.iscsiDisk)
+	globalPDPath := b.manager.MakeGlobalPDName(b)
 	mountpoint, err := b.mounter.IsMountPoint(globalPDPath)
 	if mountpoint {
 		glog.Infof("iscsi: %s already mounted", globalPDPath)

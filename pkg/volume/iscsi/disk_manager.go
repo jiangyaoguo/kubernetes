@@ -25,7 +25,7 @@ import (
 
 // Abstract interface to disk operations.
 type diskManager interface {
-	MakeGlobalPDName(disk iscsiDisk) string
+	MakeGlobalPDName(b iscsiDiskBuilder) string
 	// Attaches the disk to the kubelet's host machine.
 	AttachDisk(b iscsiDiskBuilder) error
 	// Detaches the disk from the kubelet's host machine.
@@ -34,7 +34,7 @@ type diskManager interface {
 
 // utility to mount a disk based filesystem
 func diskSetUp(manager diskManager, b iscsiDiskBuilder, volPath string, mounter mount.Interface) error {
-	globalPDPath := manager.MakeGlobalPDName(*b.iscsiDisk)
+	globalPDPath := manager.MakeGlobalPDName(b)
 	// TODO: handle failed mounts here.
 	mountpoint, err := mounter.IsMountPoint(volPath)
 

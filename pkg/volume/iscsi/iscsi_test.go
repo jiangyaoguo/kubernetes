@@ -69,11 +69,11 @@ type fakeDiskManager struct {
 	detachCalled bool
 }
 
-func (fake *fakeDiskManager) MakeGlobalPDName(disk iscsiDisk) string {
+func (fake *fakeDiskManager) MakeGlobalPDName(b iscsiDiskBuilder) string {
 	return "/tmp/fake_iscsi_path"
 }
 func (fake *fakeDiskManager) AttachDisk(b iscsiDiskBuilder) error {
-	globalPath := b.manager.MakeGlobalPDName(*b.iscsiDisk)
+	globalPath := b.manager.MakeGlobalPDName(b)
 	err := os.MkdirAll(globalPath, 0750)
 	if err != nil {
 		return err
@@ -87,8 +87,7 @@ func (fake *fakeDiskManager) AttachDisk(b iscsiDiskBuilder) error {
 }
 
 func (fake *fakeDiskManager) DetachDisk(c iscsiDiskCleaner, mntPath string) error {
-	globalPath := c.manager.MakeGlobalPDName(*c.iscsiDisk)
-	err := os.RemoveAll(globalPath)
+	err := os.RemoveAll(mntPath)
 	if err != nil {
 		return err
 	}
