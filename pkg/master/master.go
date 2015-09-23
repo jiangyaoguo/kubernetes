@@ -118,6 +118,7 @@ type Config struct {
 	EnableIndex           bool
 	EnableProfiling       bool
 	EnableWatchCache      bool
+	EnableReasonValidate  bool
 	APIPrefix             string
 	APIGroupPrefix        string
 	CorsAllowedOriginList []string
@@ -196,6 +197,7 @@ type Master struct {
 	enableSwaggerSupport  bool
 	enableProfiling       bool
 	enableWatchCache      bool
+	enableReasonValidate  bool
 	apiPrefix             string
 	apiGroupPrefix        string
 	corsAllowedOriginList []string
@@ -359,6 +361,7 @@ func New(c *Config) *Master {
 		enableSwaggerSupport:  c.EnableSwaggerSupport,
 		enableProfiling:       c.EnableProfiling,
 		enableWatchCache:      c.EnableWatchCache,
+		enableReasonValidate:  c.EnableReasonValidate,
 		apiPrefix:             c.APIPrefix,
 		apiGroupPrefix:        c.APIGroupPrefix,
 		corsAllowedOriginList: c.CorsAllowedOriginList,
@@ -437,7 +440,7 @@ func (m *Master) init(c *Config) {
 
 	podTemplateStorage := podtemplateetcd.NewREST(c.DatabaseStorage)
 
-	eventStorage := eventetcd.NewREST(c.DatabaseStorage, uint64(c.EventTTL.Seconds()))
+	eventStorage := eventetcd.NewREST(c.DatabaseStorage, m.enableReasonValidate, uint64(c.EventTTL.Seconds()))
 	limitRangeStorage := limitrangeetcd.NewREST(c.DatabaseStorage)
 
 	resourceQuotaStorage, resourceQuotaStatusStorage := resourcequotaetcd.NewREST(c.DatabaseStorage)

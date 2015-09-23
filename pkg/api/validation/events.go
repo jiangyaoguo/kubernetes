@@ -23,7 +23,7 @@ import (
 )
 
 // ValidateEvent makes sure that the event makes sense.
-func ValidateEvent(event *api.Event) errs.ValidationErrorList {
+func ValidateEvent(event *api.Event, validateReason bool) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	// TODO: There is no namespace required for node.
 	if event.InvolvedObject.Kind != "Node" &&
@@ -33,5 +33,16 @@ func ValidateEvent(event *api.Event) errs.ValidationErrorList {
 	if !validation.IsDNS1123Subdomain(event.Namespace) {
 		allErrs = append(allErrs, errs.NewFieldInvalid("namespace", event.Namespace, ""))
 	}
+	if validateReason {
+		err := validateReasonFormat(event)
+		if err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
 	return allErrs
+}
+
+func validateReasonFormat(event *api.Event) *errs.ValidationError {
+	// TODO (jiangyaoguo) validate reason in camelcase
+	return nil
 }

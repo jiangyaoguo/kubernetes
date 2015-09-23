@@ -32,14 +32,23 @@ import (
 type eventStrategy struct {
 	runtime.ObjectTyper
 	api.NameGenerator
+	extraValidate bool
 }
 
 // Strategy is the default logic that pplies when creating and updating
 // Event objects via the REST API.
-var Strategy = eventStrategy{api.Scheme, api.SimpleNameGenerator}
+var Strategy = eventStrategy{api.Scheme, api.SimpleNameGenerator, false}
 
 func (eventStrategy) NamespaceScoped() bool {
 	return true
+}
+
+func (eventStrategy) enableReasonValidate() {
+	Strategy.extraValidate = true
+}
+
+func (eventStrategy) allowExtraValidate() bool {
+	return Strategy.extraValidate
 }
 
 func (eventStrategy) PrepareForCreate(obj runtime.Object) {
@@ -50,7 +59,7 @@ func (eventStrategy) PrepareForUpdate(obj, old runtime.Object) {
 
 func (eventStrategy) Validate(ctx api.Context, obj runtime.Object) fielderrors.ValidationErrorList {
 	event := obj.(*api.Event)
-	return validation.ValidateEvent(event)
+	return validation.ValidateEvent(event, Strategy.allowExtraValidate())
 }
 
 func (eventStrategy) AllowCreateOnUpdate() bool {
@@ -59,7 +68,7 @@ func (eventStrategy) AllowCreateOnUpdate() bool {
 
 func (eventStrategy) ValidateUpdate(ctx api.Context, obj, old runtime.Object) fielderrors.ValidationErrorList {
 	event := obj.(*api.Event)
-	return validation.ValidateEvent(event)
+	return validation.ValidateEvent(event, Strategy.allowExtraValidate())
 }
 
 func (eventStrategy) AllowUnconditionalUpdate() bool {

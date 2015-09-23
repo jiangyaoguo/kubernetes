@@ -32,7 +32,7 @@ type REST struct {
 }
 
 // NewREST returns a RESTStorage object that will work against events.
-func NewREST(s storage.Interface, ttl uint64) *REST {
+func NewREST(s storage.Interface, enableValidateReason bool, ttl uint64) *REST {
 	prefix := "/events"
 	store := &etcdgeneric.Etcd{
 		NewFunc:     func() runtime.Object { return &api.Event{} },

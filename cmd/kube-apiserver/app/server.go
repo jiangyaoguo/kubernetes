@@ -112,6 +112,7 @@ type APIServer struct {
 	SSHUser                    string
 	SSHKeyfile                 string
 	MaxConnectionBytesPerSec   int64
+	EnableReasonValidate       bool
 }
 
 // NewAPIServer creates a new APIServer object with default parameters
@@ -233,6 +234,7 @@ func (s *APIServer) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.KubeletConfig.CertFile, "kubelet-client-certificate", s.KubeletConfig.CertFile, "Path to a client cert file for TLS.")
 	fs.StringVar(&s.KubeletConfig.KeyFile, "kubelet-client-key", s.KubeletConfig.KeyFile, "Path to a client key file for TLS.")
 	fs.StringVar(&s.KubeletConfig.CAFile, "kubelet-certificate-authority", s.KubeletConfig.CAFile, "Path to a cert. file for the certificate authority.")
+	fs.BoolVar(&s.EnableReasonValidate, "validate-reason", true, "Enable validate reason of Event")
 }
 
 // TODO: Longer term we should read this from some config store, rather than a flag.
@@ -472,6 +474,7 @@ func (s *APIServer) Run(_ []string) error {
 		SSHKeyfile:             s.SSHKeyfile,
 		InstallSSHKey:          installSSH,
 		ServiceNodePortRange:   s.ServiceNodePortRange,
+		EnableReasonValidate:   s.EnableReasonValidate,
 	}
 	m := master.New(config)
 

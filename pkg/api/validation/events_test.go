@@ -53,7 +53,7 @@ func TestValidateEvent(t *testing.T) {
 	}
 
 	for _, item := range table {
-		if e, a := item.valid, len(ValidateEvent(item.Event)) == 0; e != a {
+		if e, a := item.valid, len(ValidateEvent(item.Event, false)) == 0; e != a {
 			t.Errorf("%v: expected %v, got %v", item.Event.Name, e, a)
 		}
 	}

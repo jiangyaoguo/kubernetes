@@ -30,7 +30,7 @@ var testTTL uint64 = 60
 func newStorage(t *testing.T) (*REST, *tools.FakeEtcdClient) {
 	etcdStorage, fakeClient := registrytest.NewEtcdStorage(t, "")
 	fakeClient.HideExpires = true
-	return NewREST(etcdStorage, testTTL), fakeClient
+	return NewREST(etcdStorage, false, testTTL), fakeClient
 }
 
 func validNewEvent(namespace string) *api.Event {
