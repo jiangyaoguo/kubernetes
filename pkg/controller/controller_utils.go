@@ -32,6 +32,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller/framework"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/types"
 )
 
 const (
@@ -318,7 +319,19 @@ func (r RealPodControl) createPods(nodeName, namespace string, template *api.Pod
 }
 
 func (r RealPodControl) DeletePod(namespace, podID string) error {
-	return r.KubeClient.Pods(namespace).Delete(podID, nil)
+	podRef := &api.ObjectReference{
+		Kind:      "Pod",
+		Name:      podID,
+		UID:       types.UID(podID),
+		Namespace: namespace,
+	}
+	if err := r.KubeClient.Pods(namespace).Delete(podID, nil); err != nil {
+		r.Recorder.Eventf(podRef, api.EventTypeWarning, "FailedDelete", "Error deleting: %v", err)
+		return err
+	} else {
+		r.Recorder.Eventf(podRef, api.EventTypeNormal, "SuccessfulDelete", "Deleted pod: %v", podID)
+	}
+	return nil
 }
 
 type FakePodControl struct {
