@@ -223,8 +223,8 @@ type PodControlInterface interface {
 	CreatePods(namespace string, template *api.PodTemplateSpec, object runtime.Object) error
 	// CreatePodsOnNode creates a new pod accorting to the spec on the specified node.
 	CreatePodsOnNode(nodeName, namespace string, template *api.PodTemplateSpec, object runtime.Object) error
-	// DeletePod deletes the pod identified by podID.
-	DeletePod(namespace string, podID string) error
+	// DeletePod deletes the pod controlled by controller
+	DeletePod(namespace string, pod *api.Pod, object runtime.Object) error
 }
 
 // RealPodControl is the default implementation of PodControllerInterface.
@@ -317,8 +317,19 @@ func (r RealPodControl) createPods(nodeName, namespace string, template *api.Pod
 	return nil
 }
 
-func (r RealPodControl) DeletePod(namespace, podID string) error {
-	return r.KubeClient.Pods(namespace).Delete(podID, nil)
+func (r RealPodControl) DeletePod(namespace string, pod *api.Pod, object runtime.Object) error {
+	meta, err := api.ObjectMetaFor(object)
+	if err != nil {
+		return fmt.Errorf("object does not have ObjectMeta, %v", err)
+	}
+	if err := r.KubeClient.Pods(namespace).Delete(pod.Name, nil); err != nil {
+		r.Recorder.Eventf(object, api.EventTypeWarning, "FailedDelete", "Error deleting: %v", err)
+		return fmt.Errorf("unable to delete pods: %v", err)
+	} else {
+		glog.V(4).Infof("Controller %v deleted pod %v", meta.Name, pod.Name)
+		r.Recorder.Eventf(object, api.EventTypeNormal, "SuccessfulDelete", "Deleted pod: %v", pod.Name)
+	}
+	return nil
 }
 
 type FakePodControl struct {
@@ -350,13 +361,13 @@ func (f *FakePodControl) CreatePodsOnNode(nodeName, namespace string, template *
 	return nil
 }
 
-func (f *FakePodControl) DeletePod(namespace string, podName string) error {
+func (f *FakePodControl) DeletePod(namespace string, pod *api.Pod, object runtime.Object) error {
 	f.Lock()
 	defer f.Unlock()
 	if f.Err != nil {
 		return f.Err
 	}
-	f.DeletePodName = append(f.DeletePodName, podName)
+	f.DeletePodName = append(f.DeletePodName, pod.Name)
 	return nil
 }
 

@@ -352,7 +352,8 @@ func (dsc *DaemonSetsController) manage(ds *extensions.DaemonSet) {
 	if err != nil {
 		glog.Errorf("Couldn't get list of nodes when syncing daemon set %+v: %v", ds, err)
 	}
-	var nodesNeedingDaemonPods, podsToDelete []string
+	var nodesNeedingDaemonPods []string
+	var podsToDelete []*api.Pod
 	for _, node := range nodeList.Items {
 		shouldRun := nodeShouldRunDaemonPod(&node, ds)
 		daemonPods, isRunning := nodeToDaemonPods[node.Name]
@@ -365,12 +366,12 @@ func (dsc *DaemonSetsController) manage(ds *extensions.DaemonSet) {
 			// Sort the daemon pods by creation time, so the the oldest is preserved.
 			sort.Sort(podByCreationTimestamp(daemonPods))
 			for i := 1; i < len(daemonPods); i++ {
-				podsToDelete = append(podsToDelete, daemonPods[i].Name)
+				podsToDelete = append(podsToDelete, daemonPods[i])
 			}
 		} else if !shouldRun && isRunning {
 			// If daemon pod isn't supposed to run on node, but it is, delete all daemon pods on node.
 			for i := range daemonPods {
-				podsToDelete = append(podsToDelete, daemonPods[i].Name)
+				podsToDelete = append(podsToDelete, daemonPods[i])
 			}
 		}
 	}
@@ -392,9 +393,13 @@ func (dsc *DaemonSetsController) manage(ds *extensions.DaemonSet) {
 		}
 	}
 
-	glog.V(4).Infof("Pods to delete for daemon set %s: %+v", ds.Name, podsToDelete)
+	var podNamesToDelete []string
+	for _, pod := range podsToDelete {
+		podNamesToDelete = append(podNamesToDelete, pod.Name)
+	}
+	glog.V(4).Infof("Pods to delete for daemon set %s: %+v", ds.Name, podNamesToDelete)
 	for i := range podsToDelete {
-		if err := dsc.podControl.DeletePod(ds.Namespace, podsToDelete[i]); err != nil {
+		if err := dsc.podControl.DeletePod(ds.Namespace, podsToDelete[i], ds); err != nil {
 			glog.V(2).Infof("Failed deletion, decrementing expectations for set %q/%q", ds.Namespace, ds.Name)
 			dsc.expectations.DeletionObserved(dsKey)
 			util.HandleError(err)
