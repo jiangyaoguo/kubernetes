@@ -54,12 +54,14 @@ func (f *FitError) Error() string {
 }
 
 type genericScheduler struct {
-	predicates   map[string]algorithm.FitPredicate
-	prioritizers []algorithm.PriorityConfig
-	extenders    []algorithm.SchedulerExtender
-	pods         algorithm.PodLister
-	random       *rand.Rand
-	randomLock   sync.Mutex
+	predicates       map[string]algorithm.FitPredicate
+	prioritizers     []algorithm.PriorityConfig
+	extenders        []algorithm.SchedulerExtender
+	pods             algorithm.PodLister
+	random           *rand.Rand
+	randomLock       sync.Mutex
+	equivalenceClass EquivalencePod
+	cache            PredicateCache
 }
 
 func (g *genericScheduler) Schedule(pod *api.Pod, nodeLister algorithm.NodeLister) (string, error) {
@@ -71,7 +73,17 @@ func (g *genericScheduler) Schedule(pod *api.Pod, nodeLister algorithm.NodeListe
 		return "", ErrNoNodesAvailable
 	}
 
-	filteredNodes, failedPredicateMap, err := findNodesThatFit(pod, g.pods, g.predicates, nodes, g.extenders)
+	// look up cached nodes info
+	var cacheFilteredNodes api.NodeList
+	var noCacheNodes []api.Node
+	var cacheFailedPredicateMap FailedPredicateMap
+
+	cacheFilteredNodes, noCacheNodes, cacheFailedPredicateMap, cacheErr := cache.GetCachedPredicates(pod, nodes)
+	if cacheErr != nil {
+		return "", cacheErr
+	}
+
+	filteredNodes, failedPredicateMap, err := findNodesThatFit(pod, g.pods, g.predicates, noCacheNodes, g.extenders)
 	if err != nil {
 		return "", err
 	}
@@ -248,5 +260,6 @@ func NewGenericScheduler(predicates map[string]algorithm.FitPredicate, prioritiz
 		extenders:    extenders,
 		pods:         pods,
 		random:       random,
+		cache:        NewPredicateCache,
 	}
 }
