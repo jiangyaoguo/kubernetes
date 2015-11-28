@@ -134,7 +134,7 @@ func makePods(c client.Interface, podCount int) {
 			}},
 		},
 	}
-	threads := 30
+	threads := 1
 	remaining := make(chan int, 1000)
 	go func() {
 		for i := 0; i < podCount; i++ {

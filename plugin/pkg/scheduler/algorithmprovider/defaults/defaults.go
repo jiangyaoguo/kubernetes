@@ -21,6 +21,7 @@ import (
 	"os"
 	"strconv"
 
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/plugin/pkg/scheduler"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/algorithm"
@@ -76,6 +77,8 @@ func init() {
 	// PodFitsPorts has been replaced by PodFitsHostPorts for better user understanding.
 	// For backwards compatibility with 1.0, PodFitsPorts is regitered as well.
 	factory.RegisterFitPredicate("PodFitsPorts", predicates.PodFitsHostPorts)
+
+	factory.RegisterGetEquivalencePodFunction(GetEquivalencePod)
 }
 
 func defaultPredicates() sets.String {
@@ -156,4 +159,23 @@ func defaultPriorities() sets.String {
 			},
 		),
 	)
+}
+
+func GetEquivalencePod(pod *api.Pod) interface{} {
+	equivalencePod := EquivalencePod{}
+	podSpec := &(pod.Spec)
+	for _, vol := range podSpec.Volumes {
+		equivalencePod.Volumes = append(equivalencePod.Volumes, vol)
+	}
+	equivalencePod.NodeSelector = podSpec.NodeSelector
+	equivalencePod.Request = predicates.GetResourceRequest(pod)
+	equivalencePod.Ports = predicates.GetUsedPorts(pod)
+	return &equivalencePod
+}
+
+type EquivalencePod struct {
+	Volumes      []api.Volume
+	NodeSelector map[string]string
+	Ports        map[int]bool
+	Request      predicates.ResourceRequest
 }

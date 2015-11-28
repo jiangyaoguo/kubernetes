@@ -45,6 +45,10 @@ func BenchmarkScheduling1000Nodes1000Pods(b *testing.B) {
 	benchmarkScheduling(1000, 1000, b)
 }
 
+func BenchmarkScheduling1000Nodes5000Pods(b *testing.B) {
+	benchmarkScheduling(1000, 5000, b)
+}
+
 // benchmarkScheduling benchmarks scheduling rate with specific number of nodes
 // and specific number of pods already scheduled. Since an operation takes relatively
 // long time, b.N should be small: 10 - 100.
