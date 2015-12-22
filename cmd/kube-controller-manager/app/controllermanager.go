@@ -51,6 +51,7 @@ import (
 	replicationcontroller "k8s.io/kubernetes/pkg/controller/replication"
 	resourcequotacontroller "k8s.io/kubernetes/pkg/controller/resourcequota"
 	routecontroller "k8s.io/kubernetes/pkg/controller/route"
+	schedulercontroller "k8s.io/kubernetes/pkg/controller/scheduler"
 	servicecontroller "k8s.io/kubernetes/pkg/controller/service"
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	"k8s.io/kubernetes/pkg/healthz"
@@ -143,6 +144,8 @@ func Run(s *options.CMServer) error {
 		ResyncPeriod(s),
 		replicationcontroller.BurstReplicas,
 	).Run(s.ConcurrentRCSyncs, util.NeverStop)
+
+	go schedulercontroller.NewSchedulerController(clientForUserAgentOrDie(*kubeconfig, "scheduler-controller")).Run()
 
 	if s.TerminatedPodGCThreshold > 0 {
 		go gc.New(clientForUserAgentOrDie(*kubeconfig, "garbage-collector"), ResyncPeriod(s), s.TerminatedPodGCThreshold).
