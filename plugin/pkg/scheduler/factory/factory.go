@@ -238,6 +238,32 @@ func (f *ConfigFactory) CreateFromKeys(predicateKeys, priorityKeys sets.String, 
 	}, nil
 }
 
+func (f *ConfigFactory) CreateForSchedulerController() (*scheduler.Config, error) {
+	// Watch and queue pods that need scheduling.
+	cache.NewReflector(f.createUnassignedPodLW(), &api.Pod{}, f.PodQueue, 0).RunUntil(f.StopEverything)
+
+	// Begin populating scheduled pods.
+	go f.scheduledPodPopulator.Run(f.StopEverything)
+
+	podBackoff := podBackoff{
+		perPodBackoff: map[types.NamespacedName]*backoffEntry{},
+		clock:         realClock{},
+
+		defaultDuration: 1 * time.Second,
+		maxDuration:     60 * time.Second,
+	}
+	return &scheduler.Config{
+		Modeler: f.modeler,
+		NextPod: func() *api.Pod {
+			pod := f.PodQueue.Pop().(*api.Pod)
+			glog.V(2).Infof("About to try and assign pod %v", pod.Name)
+			return pod
+		},
+		Error:          f.makeDefaultErrorFunc(&podBackoff, f.PodQueue),
+		StopEverything: f.StopEverything,
+	}, nil
+}
+
 func getNodeConditionPredicate() cache.NodeConditionPredicate {
 	return func(node api.Node) bool {
 		for _, cond := range node.Status.Conditions {
