@@ -23,14 +23,18 @@ import (
 )
 
 // TestSchedule100Node3KPods schedules 3k pods on 100 nodes.
-func TestSchedule100Node3KPods(t *testing.T) {
-	schedulePods(100, 3000)
+//func TestSchedule100Node3KPods(t *testing.T) {
+//	schedulePods(100, 3000)
+//}
+
+func TestSchedule500Node15KPods(t *testing.T) {
+	schedulePods(500, 15000)
 }
 
 // TestSchedule1000Node30KPods schedules 30k pods on 1000 nodes.
-func TestSchedule1000Node30KPods(t *testing.T) {
-	schedulePods(1000, 30000)
-}
+//func TestSchedule1000Node30KPods(t *testing.T) {
+//	schedulePods(1000, 30000)
+//}
 
 // schedulePods schedules specific number of pods on specific number of nodes.
 // This is used to learn the scheduling throughput on various
@@ -46,13 +50,22 @@ func schedulePods(numNodes, numPods int) {
 
 	prev := 0
 	start := time.Now()
+	var scheduleBeginTime, scheduleEndTime time.Time
+
+	scheduleBegin := false
 	for {
 		// This can potentially affect performance of scheduler, since List() is done under mutex.
 		// Listing 10000 pods is an expensive operation, so running it frequently may impact scheduler.
 		// TODO: Setup watch on apiserver and wait until all pods scheduled.
 		scheduled := schedulerConfigFactory.ScheduledPodLister.Store.List()
 		fmt.Printf("%ds\trate: %d\ttotal: %d\n", time.Since(start)/time.Second, len(scheduled)-prev, len(scheduled))
+		if len(scheduled) > 0 && !scheduleBegin {
+			scheduleBegin = true
+			scheduleBeginTime = time.Now()
+		}
 		if len(scheduled) >= numPods {
+			scheduleEndTime = time.Now()
+			fmt.Printf("schedule %d pods on %d nodes over, spent time %v\n", numPods, numNodes, scheduleEndTime.Sub(scheduleBeginTime))
 			return
 		}
 		prev = len(scheduled)

@@ -18,6 +18,7 @@ package scheduler
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	"k8s.io/kubernetes/pkg/api"
@@ -60,16 +61,17 @@ func NewSchedulerController(client *client.Client) *SchedulerController {
 		Client:                client,
 		PodQueue:              cache.NewFIFO(cache.MetaNamespaceKeyFunc),
 		schedulerCluster:      make(map[string]*schedulerPool),
-		AssignPodsRateLimiter: util.NewTokenBucketRateLimiter(50.0, 100),
+		AssignPodsRateLimiter: util.NewTokenBucketRateLimiter(5000.0, 5000),
 		StopEverything:        make(chan struct{}),
 	}
 	// Watch and queue pods that need scheduling.
 	cache.NewReflector(sc.createUnassignedPodLW(), &api.Pod{}, sc.PodQueue, 0).RunUntil(sc.StopEverything)
 
 	// Add fake scheduler
-	sc.RegistryScheduler("faketype", "fakescheduler1")
-	sc.RegistryScheduler("faketype", "fakescheduler2")
-	sc.RegistryScheduler("faketype", "fakescheduler3")
+	sc.RegistryScheduler("faketype", "scheduler1")
+	sc.RegistryScheduler("faketype", "scheduler2")
+	sc.RegistryScheduler("multi-policy-scheduler", "fake-type")
+	//	sc.RegistryScheduler("faketype", "fakescheduler3")
 
 	return sc
 }
@@ -151,8 +153,16 @@ func (sc *SchedulerController) nextScheduler(pod *api.Pod) (string, error) {
 
 func (sc *SchedulerController) assignPodToScheduler(pod *api.Pod, schedulerId string) error {
 	// update schedulerId in anotaion
-	pod.Annotations[schedulerIdFeild] = schedulerId
-	pod, err := sc.Client.Pods(pod.Namespace).Update(pod)
+	//	pod.Annotations[schedulerIdFeild] = schedulerId
+	glog.V(2).Infof("Pod annotations: %v", pod.Annotations)
+	glog.Infof("Current Pod in controller: %v, ResourceVersion: %v", pod, pod.ResourceVersion)
+	podFromServer, err := sc.Client.Pods(pod.Namespace).Get(pod.Name)
+	glog.Infof("Current Pod in apiserver: %v, ResourceVersion: %v", podFromServer, podFromServer.ResourceVersion)
+	podFromServer.Annotations[schedulerIdFeild] = schedulerId
+	if !reflect.DeepEqual(pod, podFromServer) {
+		glog.Errorf("Pod changed.")
+	}
+	_, err = sc.Client.Pods(pod.Namespace).Update(podFromServer)
 	if err != nil {
 		return err
 	}

@@ -1346,6 +1346,7 @@ func ValidatePodUpdate(newPod, oldPod *api.Pod) field.ErrorList {
 		container.Image = oldPod.Spec.Containers[ix].Image
 		newContainers = append(newContainers, container)
 	}
+	pod.Spec.NodeName = oldPod.Spec.NodeName
 	pod.Spec.Containers = newContainers
 	if !api.Semantic.DeepEqual(pod.Spec, oldPod.Spec) {
 		//TODO: Pinpoint the specific field that causes the invalid error after we have strategic merge diff

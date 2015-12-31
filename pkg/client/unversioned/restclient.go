@@ -94,6 +94,7 @@ func readExpBackoffConfig() BackoffManager {
 	backoffBaseInt, errBase := strconv.ParseInt(backoffBase, 10, 64)
 	backoffDurationInt, errDuration := strconv.ParseInt(backoffDuration, 10, 64)
 	if errBase != nil || errDuration != nil {
+		//		glog.V(2).Infof("Configuring no exponential backoff.")
 		return &NoBackoff{}
 	} else {
 		return &URLBackoff{

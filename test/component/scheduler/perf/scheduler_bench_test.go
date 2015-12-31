@@ -23,27 +23,27 @@ import (
 
 // BenchmarkScheduling100Nodes0Pods benchmarks the scheduling rate
 // when the cluster has 100 nodes and 0 scheduled pods
-func BenchmarkScheduling100Nodes0Pods(b *testing.B) {
-	benchmarkScheduling(100, 0, b)
-}
+//func BenchmarkScheduling100Nodes0Pods(b *testing.B) {
+//	benchmarkScheduling(100, 0, b)
+//}
 
 // BenchmarkScheduling100Nodes1000Pods benchmarks the scheduling rate
 // when the cluster has 100 nodes and 1000 scheduled pods
-func BenchmarkScheduling100Nodes1000Pods(b *testing.B) {
-	benchmarkScheduling(100, 1000, b)
-}
+//func BenchmarkScheduling100Nodes1000Pods(b *testing.B) {
+//	benchmarkScheduling(100, 1000, b)
+//}
 
 // BenchmarkScheduling1000Nodes0Pods benchmarks the scheduling rate
 // when the cluster has 1000 nodes and 0 scheduled pods
-func BenchmarkScheduling1000Nodes0Pods(b *testing.B) {
-	benchmarkScheduling(1000, 0, b)
-}
+//func BenchmarkScheduling1000Nodes0Pods(b *testing.B) {
+//	benchmarkScheduling(1000, 0, b)
+//}
 
 // BenchmarkScheduling1000Nodes1000Pods benchmarks the scheduling rate
 // when the cluster has 1000 nodes and 1000 scheduled pods
-func BenchmarkScheduling1000Nodes1000Pods(b *testing.B) {
-	benchmarkScheduling(1000, 1000, b)
-}
+//func BenchmarkScheduling1000Nodes1000Pods(b *testing.B) {
+//	benchmarkScheduling(1000, 1000, b)
+//}
 
 // benchmarkScheduling benchmarks scheduling rate with specific number of nodes
 // and specific number of pods already scheduled. Since an operation takes relatively

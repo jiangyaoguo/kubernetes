@@ -17,8 +17,9 @@ limitations under the License.
 package benchmark
 
 import (
-	"net/http"
-	"net/http/httptest"
+	//"fmt"
+	//	"net/http"
+	//	"net/http/httptest"
 
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
@@ -26,8 +27,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/client/record"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/master"
-	"k8s.io/kubernetes/plugin/pkg/scheduler"
+	//	"k8s.io/kubernetes/pkg/master"
+	//	"k8s.io/kubernetes/plugin/pkg/scheduler"
 	_ "k8s.io/kubernetes/plugin/pkg/scheduler/algorithmprovider"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/factory"
 	"k8s.io/kubernetes/test/integration/framework"
@@ -44,15 +45,19 @@ import (
 func mustSetupScheduler() (schedulerConfigFactory *factory.ConfigFactory, destroyFunc func()) {
 	framework.DeleteAllEtcdKeys()
 
-	var m *master.Master
-	masterConfig := framework.NewIntegrationTestMasterConfig()
-	m = master.New(masterConfig)
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		m.Handler.ServeHTTP(w, req)
-	}))
+	//	var m *master.Master
+	//	masterConfig := framework.NewIntegrationTestMasterConfig()
+	//	m = master.New(masterConfig)
+	//	fmt.Printf("before testserver\n")
+	//	s := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	//		m.Handler.ServeHTTP(w, req)
+	//	}))
+	//	fmt.Printf("after create testserver, server URL: %v\n", s.URL)
+	//	s.Start()
+	//	fmt.Printf("start testserver, server URL: %v\n", s.URL)
 
 	c := client.NewOrDie(&client.Config{
-		Host:         s.URL,
+		Host:         "http://10.229.53.136:8080",
 		GroupVersion: testapi.Default.GroupVersion(),
 		QPS:          5000.0,
 		Burst:        5000,
@@ -66,7 +71,7 @@ func mustSetupScheduler() (schedulerConfigFactory *factory.ConfigFactory, destro
 	eventBroadcaster := record.NewBroadcaster()
 	schedulerConfig.Recorder = eventBroadcaster.NewRecorder(api.EventSource{Component: "scheduler"})
 	eventBroadcaster.StartRecordingToSink(c.Events(""))
-	scheduler.New(schedulerConfig).Run()
+	//	scheduler.New(schedulerConfig).Run()
 
 	destroyFunc = func() {
 		glog.Infof("destroying")
@@ -114,6 +119,10 @@ func makePods(c client.Interface, podCount int) {
 	basePod := &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			GenerateName: "scheduler-test-pod-",
+			Annotations: map[string]string{
+				"scheduler.alpha.kubernetes.io/name": "quick-scheduler",
+				//"scheduler.alpha.kubernetes.io/policy": "fakePolicy",
+			},
 		},
 		Spec: api.PodSpec{
 			Containers: []api.Container{{
@@ -132,7 +141,7 @@ func makePods(c client.Interface, podCount int) {
 			}},
 		},
 	}
-	threads := 30
+
 	remaining := make(chan int, 1000)
 	go func() {
 		for i := 0; i < podCount; i++ {
@@ -140,16 +149,41 @@ func makePods(c client.Interface, podCount int) {
 		}
 		close(remaining)
 	}()
+
+	threads := 30
 	for i := 0; i < threads; i++ {
 		go func() {
 			for {
-				_, ok := <-remaining
+				podNum, ok := <-remaining
+				//_, ok := <-remaining
 				if !ok {
 					return
 				}
 				for {
+					if podNum%2 == 0 {
+						//basePod.Annotations["scheduler.alpha.kubernetes.io/name"] = "quick-scheduler"
+						basePod.Annotations["scheduler.alpha.kubernetes.io/policy"] = "fakePolicy"
+						basePod.GenerateName = "scheduler2-test-pod-"
+						//						if podNum%4 == 0 {
+						//							basePod.Annotations["scheduler.alpha.kubernetes.io/policy"] = "fakePolicy"
+						//						} else {
+						//							basePod.Annotations["scheduler.alpha.kubernetes.io/policy"] = "defaultPolicy"
+						//						}
+						//fmt.Printf("<<<<<<<<<<<scheduler 2 pod name: %v\n", basePod.Annotations["scheduler.alpha.kubernetes.io/name"])
+					} else {
+						//basePod.Annotations["scheduler.alpha.kubernetes.io/name"] = "slow-scheduler"
+						basePod.Annotations["scheduler.alpha.kubernetes.io/policy"] = "defaultPolicy"
+						basePod.GenerateName = "scheduler1-test-pod-"
+						//						if podNum%4 == 1 {
+						//							basePod.Annotations["scheduler.alpha.kubernetes.io/policy"] = "fakePolicy"
+						//						} else {
+						//							basePod.Annotations["scheduler.alpha.kubernetes.io/policy"] = "defaultPolicy"
+						//						}
+						//fmt.Printf("<<<<<<<<<<<scheduler 1 pod name: %v\n", basePod.Annotations["scheduler.alpha.kubernetes.io/name"])
+					}
 					_, err := c.Pods("default").Create(basePod)
 					if err == nil {
+						//				glog.Infof("create %v pod", podNum)
 						break
 					}
 				}

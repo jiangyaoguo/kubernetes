@@ -31,7 +31,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-kube::etcd::start
+#kube::etcd::start
 kube::log::status "performance test start"
 
 # TODO: set log-dir and prof output dir.
@@ -39,8 +39,8 @@ DIR_BASENAME=$(basename `pwd`)
 go test -c -o "${DIR_BASENAME}.test"
 # We are using the benchmark suite to do profiling. Because it only runs a few pods and
 # theoretically it has less variance.
-"./${DIR_BASENAME}.test" -test.bench=. -test.run=xxxx -test.cpuprofile=prof.out -logtostderr=false
+"./${DIR_BASENAME}.test" -test.bench=. -test.run=xxxx -test.cpuprofile=prof.out -logtostderr=false -httptest.serve=10.229.53.136:8010
 kube::log::status "benchmark tests finished"
 # Running density tests. It might take a long time.
-"./${DIR_BASENAME}.test" -test.run=. -test.timeout=60m
+"./${DIR_BASENAME}.test" -test.run=. -test.timeout=60m -httptest.serve=10.229.53.136:8000
 kube::log::status "density tests finished"

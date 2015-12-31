@@ -87,7 +87,8 @@ function test_docker {
 set +e
 
 API_PORT=${API_PORT:-8080}
-API_HOST=${API_HOST:-127.0.0.1}
+#API_HOST=${API_HOST:-127.0.0.1}
+API_HOST=${API_HOST:-10.229.53.136}
 # By default only allow CORS for requests on localhost
 API_CORS_ALLOWED_ORIGINS=${API_CORS_ALLOWED_ORIGINS:-"/127.0.0.1(:[0-9]+)?$,/localhost(:[0-9]+)?$"}
 KUBELET_PORT=${KUBELET_PORT:-10250}
@@ -243,6 +244,7 @@ function start_apiserver {
       --service-account-lookup="${SERVICE_ACCOUNT_LOOKUP}" \
       --admission-control="${ADMISSION_CONTROL}" \
       --insecure-bind-address="${API_HOST}" \
+      --insecure-bind-address="10.229.53.136" \
       --insecure-port="${API_PORT}" \
       --etcd-servers="http://127.0.0.1:4001" \
       --service-cluster-ip-range="10.0.0.0/24" \
@@ -332,16 +334,17 @@ function start_kubeproxy {
     SCHEDULER_PID=$!
 }
 
+#  ${CTLRMGR_LOG}
+#  ${PROXY_LOG}
+#  ${SCHEDULER_LOG}
+#  ${KUBELET_LOG}
+
 function print_success {
 cat <<EOF
 Local Kubernetes cluster is running. Press Ctrl-C to shut it down.
 
 Logs:
   ${APISERVER_LOG}
-  ${CTLRMGR_LOG}
-  ${PROXY_LOG}
-  ${SCHEDULER_LOG}
-  ${KUBELET_LOG}
 
 To start using your cluster, open up another terminal/tab and run:
 
@@ -368,8 +371,8 @@ startETCD
 set_service_accounts
 start_apiserver
 start_controller_manager
-start_kubelet
-start_kubeproxy
+#start_kubelet
+#start_kubeproxy
 print_success
 
 while true; do sleep 1; done
