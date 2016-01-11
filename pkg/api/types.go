@@ -1825,6 +1825,61 @@ type NodeList struct {
 	Items []Node `json:"items"`
 }
 
+type Scheduler struct {
+	unversioned.TypeMeta `json:",inline"`
+	ObjectMeta `json:"metadata,omitempty"`
+
+	Status SchedulerStatus `json:"status,omitempty"`
+}
+
+// SchedulerStatus is information about the current status of a scheduler.
+type SchedulerStatus struct {
+	Phase SchedulerPhase `json:"phase,omitempty"`
+	Condition []SchedulerCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+}
+
+type SchedulerPhase string
+
+// These are the valid phases of scheduler.
+const (
+	// SchedulerRunning means the scheduler is running.
+	SchedulerRunning SchedulerPhase = "Running"
+	// SchedulerTerminated means the scheduler has been removed from the cluster.
+	SchedulerTerminated SchedulerPhase = "Terminated"
+)
+
+type SchedulerConditionType string
+
+// These are the valid conditions for the component.
+const (
+	// SchedulerReady means scheduler is ready to accept pods.
+	SchedulerReady	 SchedulerConditionType = "Ready"
+)
+
+// SchedulerCondition contains condition infromation for a scheduler.
+type SchedulerCondition struct {
+	// Type of scheduler condition, currently only Ready.
+	Type SchedulerConditionType `json:"type"`
+	// Status of the condition, one of True, False, Unknown.
+	Status ConditionStatus `json:"status"`
+	// Last time we got an update on a given condition.
+	LastHeartbeatTime unversioned.Time `json:"lastHeartbeatTime,omitempty"`
+	// Last time the condition transit from one status to another.
+	LastTransitionTime unversioned.Time `json:"lastTransitionTime,omitempty"`
+	// (brief) reason for the condition's last transition.
+	Reason string `json:"reason,omitempty"`
+	// Human readable message indicating details about last transition.
+	Message string `json:"message,omitempty"`
+}
+
+// SchedulerList is the whole list of all Schedulers which have been registered with master.
+type SchedulerList struct {
+	unversioned.TypeMeta `json:",inline"`
+	unversioned.ListMeta `json:"metadata,omitempty"`
+
+	Items []Scheduler `json:"items"`
+}
+
 // NamespaceSpec describes the attributes on a Namespace
 type NamespaceSpec struct {
 	// Finalizers is an opaque list of values that must be empty to permanently remove object from storage

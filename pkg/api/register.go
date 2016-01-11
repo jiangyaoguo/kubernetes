@@ -70,6 +70,8 @@ func AddToScheme(scheme *runtime.Scheme) {
 		&NodeList{},
 		&Node{},
 		&NodeProxyOptions{},
+		&SchedulerList{},
+		&Scheduler{},
 		&Endpoints{},
 		&EndpointsList{},
 		&Binding{},
@@ -136,6 +138,9 @@ func (obj *Node) GetObjectMeta() meta.Object                                 { r
 func (obj *Node) GetObjectKind() unversioned.ObjectKind                      { return &obj.TypeMeta }
 func (obj *NodeList) GetObjectKind() unversioned.ObjectKind                  { return &obj.TypeMeta }
 func (obj *NodeProxyOptions) GetObjectKind() unversioned.ObjectKind          { return &obj.TypeMeta }
+func (obj *Scheduler) GetObjectMeta() meta.Object                            { return &obj.ObjectMeta }
+func (obj *Scheduler) GetObjectKind() unversioned.ObjectKind                 { return &obj.TypeMeta }
+func (obj *SchedulerList) GetObjectKind() unversioned.ObjectKind             { return &obj.TypeMeta }
 func (obj *Binding) GetObjectMeta() meta.Object                              { return &obj.ObjectMeta }
 func (obj *Binding) GetObjectKind() unversioned.ObjectKind                   { return &obj.TypeMeta }
 func (obj *Event) GetObjectMeta() meta.Object                                { return &obj.ObjectMeta }

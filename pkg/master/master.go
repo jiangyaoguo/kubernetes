@@ -63,6 +63,7 @@ import (
 	podtemplateetcd "k8s.io/kubernetes/pkg/registry/podtemplate/etcd"
 	replicasetetcd "k8s.io/kubernetes/pkg/registry/replicaset/etcd"
 	resourcequotaetcd "k8s.io/kubernetes/pkg/registry/resourcequota/etcd"
+	scheduleretcd "k8s.io/kubernetes/pkg/registry/scheduler/etcd"
 	secretetcd "k8s.io/kubernetes/pkg/registry/secret/etcd"
 	"k8s.io/kubernetes/pkg/registry/service"
 	etcdallocator "k8s.io/kubernetes/pkg/registry/service/allocator/etcd"
@@ -362,6 +363,8 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 	nodeStorage := nodeetcd.NewStorage(restOptions("nodes"), c.KubeletClient, m.ProxyTransport)
 	m.nodeRegistry = node.NewRegistry(nodeStorage.Node)
 
+	schedulerStorage, schedulerStatusStorage := scheduleretcd.NewREST(dbClient("schedulers"), storageDecorator)
+
 	podStorage := podetcd.NewStorage(
 		restOptions("pods"),
 		kubeletclient.ConnectionInfoGetter(nodeStorage.Node),
@@ -421,9 +424,11 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 
 		"endpoints": endpointsStorage,
 
-		"nodes":        nodeStorage.Node,
-		"nodes/status": nodeStorage.Status,
-		"nodes/proxy":  nodeStorage.Proxy,
+		"nodes":             nodeStorage.Node,
+		"nodes/status":      nodeStorage.Status,
+		"nodes/proxy":       nodeStorage.Proxy,
+		"schedulers":        schedulerStorage,
+		"schedulers/status": schedulerStatusStorage,
 
 		"events": eventStorage,
 

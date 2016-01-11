@@ -188,6 +188,10 @@ func ValidateNodeName(name string, prefix bool) (bool, string) {
 	return NameIsDNSSubdomain(name, prefix)
 }
 
+func ValidateSchedulerName(name string, prefix bool) (bool, string) {
+	return NameIsDNSSubdomain(name, prefix)
+}
+
 // ValidateNamespaceName can be used to check whether the given namespace name is valid.
 // Prefix indicates this name will be used as part of generation, in which case
 // trailing dashes are allowed.
@@ -1991,6 +1995,18 @@ func ValidateNodeUpdate(node, oldNode *api.Node) field.ErrorList {
 		allErrs = append(allErrs, field.Forbidden(field.NewPath(""), "node updates may only change labels or capacity"))
 	}
 
+	return allErrs
+}
+
+// ValidateScheduler tests if required fields in the scheduler are set.
+func ValidateScheduler(scheduler *api.Scheduler) field.ErrorList {
+	allErrs := ValidateObjectMeta(&scheduler.ObjectMeta, false, ValidateSchedulerName, field.NewPath("metadata"))
+	return allErrs
+}
+
+// ValidateSchedulerUpdate tests to make sure a scheduler update can be applied.
+func ValidateSchedulerUpdate(scheduler, oldScheduler *api.Scheduler) field.ErrorList {
+	allErrs := ValidateObjectMetaUpdate(&scheduler.ObjectMeta, &oldScheduler.ObjectMeta, field.NewPath("metadata"))
 	return allErrs
 }
 

@@ -2218,6 +2218,70 @@ type NodeList struct {
 	Items []Node `json:"items"`
 }
 
+type Scheduler struct {
+	unversioned.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata
+	ObjectMeta `json:"metadata,omitempty"`
+
+	// Most recently observed status of the scheduler.
+	// Populated by the system.
+	// Read-only.
+	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#spec-and-status
+	Status SchedulerStatus `json:"status,omitempty"`
+}
+
+// SchedulerStatus is information about the current status of a scheduler.
+type SchedulerStatus struct {
+	Phase SchedulerPhase `json:"phase,omitempty"`
+	Condition []SchedulerCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+}
+
+type SchedulerPhase string
+
+// These are the valid phases of scheduler.
+const (
+	// SchedulerRunning means the scheduler is running.
+	SchedulerRunning SchedulerPhase = "Running"
+	// SchedulerTerminated means the scheduler has been removed from the cluster.
+	SchedulerTerminated SchedulerPhase = "Terminated"
+)
+
+type SchedulerConditionType string
+
+// These are the valid conditions for the component.
+const (
+	// SchedulerReady means scheduler is ready to accept pods.
+	SchedulerReady	 SchedulerConditionType = "Ready"
+)
+
+// SchedulerCondition contains condition infromation for a scheduler.
+type SchedulerCondition struct {
+	// Type of scheduler condition, currently only Ready.
+	Type SchedulerConditionType `json:"type"`
+	// Status of the condition, one of True, False, Unknown.
+	Status ConditionStatus `json:"status"`
+	// Last time we got an update on a given condition.
+	LastHeartbeatTime unversioned.Time `json:"lastHeartbeatTime,omitempty"`
+	// Last time the condition transit from one status to another.
+	LastTransitionTime unversioned.Time `json:"lastTransitionTime,omitempty"`
+	// (brief) reason for the condition's last transition.
+	Reason string `json:"reason,omitempty"`
+	// Human readable message indicating details about last transition.
+	Message string `json:"message,omitempty"`
+}
+
+// SchedulerList is the whole list of all Schedulers which have been registered with master.
+type SchedulerList struct {
+	unversioned.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#types-kinds
+	unversioned.ListMeta `json:"metadata,omitempty"`
+
+	// List of scheduler
+	Items []Scheduler `json:"items"`
+}
+
 type FinalizerName string
 
 // These are internal finalizer values to Kubernetes, must be qualified name unless defined here

@@ -52,6 +52,8 @@ func addKnownTypes(scheme *runtime.Scheme) {
 		&Node{},
 		&NodeList{},
 		&NodeProxyOptions{},
+		&Scheduler{},
+		&SchedulerList{},
 		&Binding{},
 		&Event{},
 		&EventList{},
@@ -103,6 +105,8 @@ func (obj *EndpointsList) GetObjectKind() unversioned.ObjectKind             { r
 func (obj *Node) GetObjectKind() unversioned.ObjectKind                      { return &obj.TypeMeta }
 func (obj *NodeList) GetObjectKind() unversioned.ObjectKind                  { return &obj.TypeMeta }
 func (obj *NodeProxyOptions) GetObjectKind() unversioned.ObjectKind          { return &obj.TypeMeta }
+func (obj *Scheduler) GetObjectKind() unversioned.ObjectKind                 { return &obj.TypeMeta }
+func (obj *SchedulerList) GetObjectKind() unversioned.ObjectKind             { return &obj.TypeMeta }
 func (obj *Binding) GetObjectKind() unversioned.ObjectKind                   { return &obj.TypeMeta }
 func (obj *Event) GetObjectKind() unversioned.ObjectKind                     { return &obj.TypeMeta }
 func (obj *EventList) GetObjectKind() unversioned.ObjectKind                 { return &obj.TypeMeta }
