@@ -20,10 +20,14 @@ package scheduler
 // contrib/mesos/pkg/scheduler/.
 
 import (
+	"fmt"
 	"time"
 
 	"k8s.io/kubernetes/pkg/api"
+	apierrors "k8s.io/kubernetes/pkg/api/errors"
+	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/client/record"
+	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/algorithm"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/metrics"
@@ -65,7 +69,13 @@ type SystemModeler interface {
 // Scheduler watches for new unscheduled pods. It attempts to find
 // nodes that they fit on and writes bindings back to the api server.
 type Scheduler struct {
-	config *Config
+	config                         *Config
+	kubeClient                     client.Interface
+	clock                          util.Clock
+	schedulerStatusUpdateFrequency time.Duration
+	registerScheduler              bool
+	registrationCompleted          bool
+	schedulerName                  string
 }
 
 type Config struct {
@@ -93,10 +103,21 @@ type Config struct {
 	StopEverything chan struct{}
 }
 
+const (
+	// schedulerStatusUpdateRetry specifies how many times scheduler retries when posting scheduler status failed.
+	schedulerStatusUpdateRetry = 5
+)
+
 // New returns a new scheduler.
-func New(c *Config) *Scheduler {
+func New(c *Config, client client.Interface, schedulerName string) *Scheduler {
 	s := &Scheduler{
-		config: c,
+		config:     c,
+		kubeClient: client,
+		clock:      util.RealClock{},
+		schedulerStatusUpdateFrequency: 10 * time.Second,
+		registerScheduler:              true,
+		registrationCompleted:          false,
+		schedulerName:                  schedulerName,
 	}
 	metrics.Register()
 	return s
@@ -104,7 +125,138 @@ func New(c *Config) *Scheduler {
 
 // Run begins watching and scheduling. It starts a goroutine and returns immediately.
 func (s *Scheduler) Run() {
-	go wait.Until(s.scheduleOne, 0, s.config.StopEverything)
+	go util.Until(s.syncSchedulerStatus, s.schedulerStatusUpdateFrequency, util.NeverStop)
+	go util.Until(s.scheduleOne, 0, s.config.StopEverything)
+}
+
+func (s *Scheduler) syncSchedulerStatus() {
+	if s.kubeClient == nil {
+		return
+	}
+	if s.registerScheduler {
+		// This will exit immediately if it doesn't need to do anything.
+		s.registerWithApiserver()
+	}
+	if err := s.updateSchedulerStatus(); err != nil {
+		glog.Errorf("Unable to update node status: %v", err)
+	}
+}
+
+func (s *Scheduler) registerWithApiserver() {
+	if s.registrationCompleted {
+		return
+	}
+	step := 100 * time.Millisecond
+	for {
+		time.Sleep(step)
+		step = step * 2
+		if step >= 7*time.Second {
+			step = 7 * time.Second
+		}
+
+		scheduler, err := s.initialSchedulerStatus()
+		if err != nil {
+			glog.Errorf("Unable to construct api.Scheduler object: %v", err)
+			continue
+		}
+		glog.V(2).Infof("Attempting to register scheduler %s", scheduler.Name)
+		if _, err := s.kubeClient.Schedulers().Create(scheduler); err != nil {
+			if !apierrors.IsAlreadyExists(err) {
+				glog.V(2).Infof("Unable to register %s with the apiserver: %v", scheduler.Name, err)
+				continue
+			}
+			currentScheduler, err := s.kubeClient.Schedulers().Get(s.schedulerName)
+			if err != nil {
+				glog.Errorf("error getting scheduler %q: %v", s.schedulerName, err)
+				continue
+			}
+			if currentScheduler == nil {
+				glog.Errorf("no scheduler instance returned for %q", s.schedulerName)
+				continue
+			}
+			if err := s.kubeClient.Schedulers().Delete(scheduler.Name); err != nil {
+				glog.Errorf("Unable to delete old scheduler: %v", err)
+			} else {
+				glog.Errorf("Deleted old scheduler object %q", scheduler.Name)
+			}
+			continue
+		}
+		glog.Infof("Successfully registered scheduler %s", scheduler.Name)
+		s.registrationCompleted = true
+		return
+	}
+}
+
+func (s *Scheduler) initialSchedulerStatus() (*api.Scheduler, error) {
+	scheduler := &api.Scheduler{
+		ObjectMeta: api.ObjectMeta{
+			Name:   s.schedulerName,
+			Labels: map[string]string{"kubernetes.io/scheduler": s.schedulerName},
+		},
+	}
+
+	if err := s.setSchedulerStatus(scheduler); err != nil {
+		return nil, err
+	}
+	return scheduler, nil
+}
+
+func (s *Scheduler) updateSchedulerStatus() error {
+	for i := 0; i < schedulerStatusUpdateRetry; i++ {
+		if err := s.tryUpdateSchedulerStatus(); err != nil {
+			glog.Errorf("Error updating scheduler status, will retry: %v", err)
+		} else {
+			return nil
+		}
+	}
+	return fmt.Errorf("update scheduler status exceeds retry count")
+}
+
+func (s *Scheduler) tryUpdateSchedulerStatus() error {
+	scheduler, err := s.kubeClient.Schedulers().Get(s.schedulerName)
+	if err != nil {
+		return fmt.Errorf("error getting scheduler %q: %v", s.schedulerName, err)
+	}
+	if scheduler == nil {
+		return fmt.Errorf("no scheduler instance returned for %q", s.schedulerName)
+	}
+	if err := s.setSchedulerStatus(scheduler); err != nil {
+		return err
+	}
+	// Update the current status on the API server
+	_, err = s.kubeClient.Schedulers().UpdateStatus(scheduler)
+	return err
+}
+
+func (s *Scheduler) setSchedulerStatus(scheduler *api.Scheduler) error {
+	s.setSchedulerReadyCondition(scheduler)
+	return nil
+}
+
+// Set Readycondition for the scheduler.
+func (s *Scheduler) setSchedulerReadyCondition(scheduler *api.Scheduler) {
+	currentTime := unversioned.NewTime(s.clock.Now())
+	var newSchedulerReadyCondition api.SchedulerCondition
+	newSchedulerReadyCondition = api.SchedulerCondition{
+		Type:   api.SchedulerReady,
+		Status: api.ConditionFalse,
+		//		Reason:            "SchedulerNotReady",
+		Reason:            "SchedulerReady",
+		Message:           "SchedulerReady is posting ready status",
+		LastHeartbeatTime: currentTime,
+	}
+
+	readyConditionUpdated := false
+	for i := range scheduler.Status.Conditions {
+		if scheduler.Status.Conditions[i].Type == api.SchedulerReady {
+			scheduler.Status.Conditions[i] = newSchedulerReadyCondition
+			readyConditionUpdated = true
+			break
+		}
+	}
+	if !readyConditionUpdated {
+		scheduler.Status.Conditions = append(scheduler.Status.Conditions, newSchedulerReadyCondition)
+	}
 }
 
 func (s *Scheduler) scheduleOne() {

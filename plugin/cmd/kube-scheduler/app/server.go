@@ -118,8 +118,7 @@ func Run(s *options.SchedulerServer) error {
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(kubeClient.Events(""))
 
-	sched := scheduler.New(config)
-
+	sched := scheduler.New(config, kubeClient, s.SchedulerName)
 	run := func(_ <-chan struct{}) {
 		sched.Run()
 		select {}

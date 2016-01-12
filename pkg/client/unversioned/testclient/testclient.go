@@ -237,6 +237,10 @@ func (c *Fake) PodSecurityPolicies() client.PodSecurityPolicyInterface {
 	return &FakePodSecurityPolicy{Fake: c}
 }
 
+func (c *Fake) Schedulers() client.SchedulerInterface {
+	return &FakeSchedulers{Fake: c}
+}
+
 func (c *Fake) Events(namespace string) client.EventInterface {
 	return &FakeEvents{Fake: c, Namespace: namespace}
 }

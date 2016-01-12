@@ -1835,7 +1835,7 @@ type Scheduler struct {
 // SchedulerStatus is information about the current status of a scheduler.
 type SchedulerStatus struct {
 	Phase SchedulerPhase `json:"phase,omitempty"`
-	Condition []SchedulerCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	Conditions []SchedulerCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 type SchedulerPhase string
