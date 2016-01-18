@@ -2160,6 +2160,76 @@ func deepCopy_v1_SELinuxOptions(in SELinuxOptions, out *SELinuxOptions, c *conve
 	return nil
 }
 
+func deepCopy_v1_Scheduler(in Scheduler, out *Scheduler, c *conversion.Cloner) error {
+	if err := deepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
+		return err
+	}
+	if err := deepCopy_v1_ObjectMeta(in.ObjectMeta, &out.ObjectMeta, c); err != nil {
+		return err
+	}
+	if err := deepCopy_v1_SchedulerSpec(in.Spec, &out.Spec, c); err != nil {
+		return err
+	}
+	if err := deepCopy_v1_SchedulerStatus(in.Status, &out.Status, c); err != nil {
+		return err
+	}
+	return nil
+}
+
+func deepCopy_v1_SchedulerCondition(in SchedulerCondition, out *SchedulerCondition, c *conversion.Cloner) error {
+	out.Type = in.Type
+	out.Status = in.Status
+	if err := deepCopy_unversioned_Time(in.LastHeartbeatTime, &out.LastHeartbeatTime, c); err != nil {
+		return err
+	}
+	if err := deepCopy_unversioned_Time(in.LastTransitionTime, &out.LastTransitionTime, c); err != nil {
+		return err
+	}
+	out.Reason = in.Reason
+	out.Message = in.Message
+	return nil
+}
+
+func deepCopy_v1_SchedulerList(in SchedulerList, out *SchedulerList, c *conversion.Cloner) error {
+	if err := deepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
+		return err
+	}
+	if err := deepCopy_unversioned_ListMeta(in.ListMeta, &out.ListMeta, c); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		out.Items = make([]Scheduler, len(in.Items))
+		for i := range in.Items {
+			if err := deepCopy_v1_Scheduler(in.Items[i], &out.Items[i], c); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
+func deepCopy_v1_SchedulerSpec(in SchedulerSpec, out *SchedulerSpec, c *conversion.Cloner) error {
+	out.SchedulerType = in.SchedulerType
+	return nil
+}
+
+func deepCopy_v1_SchedulerStatus(in SchedulerStatus, out *SchedulerStatus, c *conversion.Cloner) error {
+	out.Phase = in.Phase
+	if in.Conditions != nil {
+		out.Conditions = make([]SchedulerCondition, len(in.Conditions))
+		for i := range in.Conditions {
+			if err := deepCopy_v1_SchedulerCondition(in.Conditions[i], &out.Conditions[i], c); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Conditions = nil
+	}
+	return nil
+}
+
 func deepCopy_v1_Secret(in Secret, out *Secret, c *conversion.Cloner) error {
 	if err := deepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
 		return err
@@ -2748,6 +2818,11 @@ func init() {
 		deepCopy_v1_ResourceQuotaStatus,
 		deepCopy_v1_ResourceRequirements,
 		deepCopy_v1_SELinuxOptions,
+		deepCopy_v1_Scheduler,
+		deepCopy_v1_SchedulerCondition,
+		deepCopy_v1_SchedulerList,
+		deepCopy_v1_SchedulerSpec,
+		deepCopy_v1_SchedulerStatus,
 		deepCopy_v1_Secret,
 		deepCopy_v1_SecretKeySelector,
 		deepCopy_v1_SecretList,

@@ -25,6 +25,7 @@ import (
 	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/util"
+	"k8s.io/kubernetes/pkg/util/wait"
 
 	"github.com/golang/glog"
 )
@@ -84,11 +85,12 @@ func (sc *SchedulerController) nextPod() *api.Pod {
 // scheduled.
 // TODO: combine this with configfactory.createUnassignedPodLW in /plugin/scheduler/factory package
 func (sc *SchedulerController) createUnassignedPodLW() *cache.ListWatch {
-	return cache.NewListWatchFromClient(sc.Client, "pods", api.NamespaceAll, fields.Set{client.PodHost: ""}.AsSelector())
+	selector := fields.ParseSelectorOrDie("spec.nodeName==" + "" + ",status.phase!=" + string(api.PodSucceeded) + ",status.phase!=" + string(api.PodFailed))
+	return cache.NewListWatchFromClient(sc.Client, "pods", api.NamespaceAll, selector)
 }
 
 func (sc *SchedulerController) Run() {
-	go util.Until(sc.assignOne, 0, sc.StopEverything)
+	go wait.Until(sc.assignOne, 0, sc.StopEverything)
 }
 
 func (sc *SchedulerController) assignOne() {

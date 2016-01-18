@@ -28,6 +28,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/client/record"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/util"
 	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/algorithm"
 	"k8s.io/kubernetes/plugin/pkg/scheduler/metrics"
@@ -125,8 +126,8 @@ func New(c *Config, client client.Interface, schedulerName string) *Scheduler {
 
 // Run begins watching and scheduling. It starts a goroutine and returns immediately.
 func (s *Scheduler) Run() {
-	go util.Until(s.syncSchedulerStatus, s.schedulerStatusUpdateFrequency, util.NeverStop)
-	go util.Until(s.scheduleOne, 0, s.config.StopEverything)
+	go wait.Until(s.syncSchedulerStatus, s.schedulerStatusUpdateFrequency, wait.NeverStop)
+	go wait.Until(s.scheduleOne, 0, s.config.StopEverything)
 }
 
 func (s *Scheduler) syncSchedulerStatus() {
@@ -192,6 +193,9 @@ func (s *Scheduler) initialSchedulerStatus() (*api.Scheduler, error) {
 		ObjectMeta: api.ObjectMeta{
 			Name:   s.schedulerName,
 			Labels: map[string]string{"kubernetes.io/scheduler": s.schedulerName},
+		},
+		Spec: api.SchedulerSpec{
+			SchedulerType: "testType",
 		},
 	}
 

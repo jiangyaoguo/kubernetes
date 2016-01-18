@@ -363,7 +363,7 @@ func (m *Master) initV1ResourcesStorage(c *Config) {
 	nodeStorage := nodeetcd.NewStorage(restOptions("nodes"), c.KubeletClient, m.ProxyTransport)
 	m.nodeRegistry = node.NewRegistry(nodeStorage.Node)
 
-	schedulerStorage, schedulerStatusStorage := scheduleretcd.NewREST(dbClient("schedulers"), storageDecorator)
+	schedulerStorage, schedulerStatusStorage := scheduleretcd.NewREST(restOptions("schedulers"))
 
 	podStorage := podetcd.NewStorage(
 		restOptions("pods"),

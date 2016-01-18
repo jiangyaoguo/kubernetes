@@ -62,7 +62,7 @@ func (c *schedulers) Create(scheduler *api.Scheduler) (*api.Scheduler, error) {
 // List takes a selector, and returns the list of schedulers that match that selector in the cluster.
 func (c *schedulers) List(opts api.ListOptions) (*api.SchedulerList, error) {
 	result := &api.SchedulerList{}
-	err := c.r.Get().Resource(c.resourceName()).VersionedParams(&opts, api.Scheme).Do().Into(result)
+	err := c.r.Get().Resource(c.resourceName()).VersionedParams(&opts, api.ParameterCodec).Do().Into(result)
 	return result, err
 }
 
@@ -105,6 +105,6 @@ func (c *schedulers) Watch(opts api.ListOptions) (watch.Interface, error) {
 		Prefix("watch").
 		Namespace(api.NamespaceAll).
 		Resource(c.resourceName()).
-		VersionedParams(&opts, api.Scheme).
+		VersionedParams(&opts, api.ParameterCodec).
 		Watch()
 }

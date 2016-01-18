@@ -194,7 +194,7 @@ func StartControllers(s *options.CMServer, kubeClient *client.Client, kubeconfig
 		s.LookupCacheSizeForRC,
 	).Run(s.ConcurrentRCSyncs, wait.NeverStop)
 
-	go schedulercontroller.NewSchedulerController(clientForUserAgentOrDie(*kubeconfig, "scheduler-controller")).Run()
+	go schedulercontroller.NewSchedulerController(kubeClient).Run()
 
 	if s.TerminatedPodGCThreshold > 0 {
 		go gc.New(clientset.NewForConfigOrDie(restclient.AddUserAgent(kubeconfig, "garbage-collector")), ResyncPeriod(s), s.TerminatedPodGCThreshold).

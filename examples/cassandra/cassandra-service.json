@@ -6,11 +6,12 @@
     },
     "spec": {
         "selector": {
+			"app": "cassandra"
         },
         "ports": [
             {
-                "port": 9042,
-            },
+                "port": 9042
+            }
         ]
-    },
+    }
 }

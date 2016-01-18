@@ -190,7 +190,7 @@ func startComponents(firstManifestURL, secondManifestURL string) (string, string
 	schedulerConfig.Recorder = eventBroadcaster.NewRecorder(api.EventSource{Component: api.DefaultSchedulerName})
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(cl.Events(""))
-	scheduler.New(schedulerConfig).Run()
+	scheduler.New(schedulerConfig, cl, "default-scheduler").Run()
 
 	// ensure the service endpoints are sync'd several times within the window that the integration tests wait
 	go endpointcontroller.NewEndpointController(clientset, controller.NoResyncPeriodFunc).

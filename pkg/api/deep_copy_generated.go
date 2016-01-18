@@ -153,6 +153,11 @@ func init() {
 		DeepCopy_api_ResourceQuotaStatus,
 		DeepCopy_api_ResourceRequirements,
 		DeepCopy_api_SELinuxOptions,
+		DeepCopy_api_Scheduler,
+		DeepCopy_api_SchedulerCondition,
+		DeepCopy_api_SchedulerList,
+		DeepCopy_api_SchedulerSpec,
+		DeepCopy_api_SchedulerStatus,
 		DeepCopy_api_Secret,
 		DeepCopy_api_SecretKeySelector,
 		DeepCopy_api_SecretList,
@@ -2533,6 +2538,82 @@ func DeepCopy_api_SELinuxOptions(in SELinuxOptions, out *SELinuxOptions, c *conv
 	out.Role = in.Role
 	out.Type = in.Type
 	out.Level = in.Level
+	return nil
+}
+
+func DeepCopy_api_Scheduler(in Scheduler, out *Scheduler, c *conversion.Cloner) error {
+	if err := DeepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
+		return err
+	}
+	if err := DeepCopy_api_ObjectMeta(in.ObjectMeta, &out.ObjectMeta, c); err != nil {
+		return err
+	}
+	if err := DeepCopy_api_SchedulerSpec(in.Spec, &out.Spec, c); err != nil {
+		return err
+	}
+	if err := DeepCopy_api_SchedulerStatus(in.Status, &out.Status, c); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DeepCopy_api_SchedulerCondition(in SchedulerCondition, out *SchedulerCondition, c *conversion.Cloner) error {
+	out.Type = in.Type
+	out.Status = in.Status
+	if newVal, err := c.DeepCopy(in.LastHeartbeatTime); err != nil {
+		return err
+	} else {
+		out.LastHeartbeatTime = newVal.(unversioned.Time)
+	}
+	if newVal, err := c.DeepCopy(in.LastTransitionTime); err != nil {
+		return err
+	} else {
+		out.LastTransitionTime = newVal.(unversioned.Time)
+	}
+	out.Reason = in.Reason
+	out.Message = in.Message
+	return nil
+}
+
+func DeepCopy_api_SchedulerList(in SchedulerList, out *SchedulerList, c *conversion.Cloner) error {
+	if err := DeepCopy_unversioned_TypeMeta(in.TypeMeta, &out.TypeMeta, c); err != nil {
+		return err
+	}
+	if err := DeepCopy_unversioned_ListMeta(in.ListMeta, &out.ListMeta, c); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		in, out := in.Items, &out.Items
+		*out = make([]Scheduler, len(in))
+		for i := range in {
+			if err := DeepCopy_api_Scheduler(in[i], &(*out)[i], c); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
+func DeepCopy_api_SchedulerSpec(in SchedulerSpec, out *SchedulerSpec, c *conversion.Cloner) error {
+	out.SchedulerType = in.SchedulerType
+	return nil
+}
+
+func DeepCopy_api_SchedulerStatus(in SchedulerStatus, out *SchedulerStatus, c *conversion.Cloner) error {
+	out.Phase = in.Phase
+	if in.Conditions != nil {
+		in, out := in.Conditions, &out.Conditions
+		*out = make([]SchedulerCondition, len(in))
+		for i := range in {
+			if err := DeepCopy_api_SchedulerCondition(in[i], &(*out)[i], c); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Conditions = nil
+	}
 	return nil
 }
 

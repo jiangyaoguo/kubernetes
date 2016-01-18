@@ -1825,16 +1825,23 @@ type NodeList struct {
 	Items []Node `json:"items"`
 }
 
+// SchedulerSpec describes the attributes that a scheduler is created with.
+type SchedulerSpec struct {
+	SchedulerType string `json:"schedulerType,omitempty"`
+}
+
 type Scheduler struct {
 	unversioned.TypeMeta `json:",inline"`
-	ObjectMeta `json:"metadata,omitempty"`
+	ObjectMeta           `json:"metadata,omitempty"`
+
+	Spec SchedulerSpec `json:"spec,omitempty"`
 
 	Status SchedulerStatus `json:"status,omitempty"`
 }
 
 // SchedulerStatus is information about the current status of a scheduler.
 type SchedulerStatus struct {
-	Phase SchedulerPhase `json:"phase,omitempty"`
+	Phase      SchedulerPhase       `json:"phase,omitempty"`
 	Conditions []SchedulerCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
@@ -1853,7 +1860,7 @@ type SchedulerConditionType string
 // These are the valid conditions for the component.
 const (
 	// SchedulerReady means scheduler is ready to accept pods.
-	SchedulerReady	 SchedulerConditionType = "Ready"
+	SchedulerReady SchedulerConditionType = "Ready"
 )
 
 // SchedulerCondition contains condition infromation for a scheduler.

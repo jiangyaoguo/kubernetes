@@ -2218,11 +2218,18 @@ type NodeList struct {
 	Items []Node `json:"items"`
 }
 
+// SchedulerSpec describes the attributes that a scheduler is created with.
+type SchedulerSpec struct {
+	SchedulerType string `json:"schedulerType,omitempty"`
+}
+
 type Scheduler struct {
 	unversioned.TypeMeta `json:",inline"`
 	// Standard object's metadata.
 	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata
 	ObjectMeta `json:"metadata,omitempty"`
+	
+	Spec SchedulerSpec `json:"spec,omitempty"`
 
 	// Most recently observed status of the scheduler.
 	// Populated by the system.

@@ -2767,6 +2767,105 @@ func Convert_api_SELinuxOptions_To_v1_SELinuxOptions(in *api.SELinuxOptions, out
 	return autoConvert_api_SELinuxOptions_To_v1_SELinuxOptions(in, out, s)
 }
 
+func autoConvert_api_Scheduler_To_v1_Scheduler(in *api.Scheduler, out *Scheduler, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*api.Scheduler))(in)
+	}
+	if err := Convert_api_ObjectMeta_To_v1_ObjectMeta(&in.ObjectMeta, &out.ObjectMeta, s); err != nil {
+		return err
+	}
+	if err := Convert_api_SchedulerSpec_To_v1_SchedulerSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_api_SchedulerStatus_To_v1_SchedulerStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Convert_api_Scheduler_To_v1_Scheduler(in *api.Scheduler, out *Scheduler, s conversion.Scope) error {
+	return autoConvert_api_Scheduler_To_v1_Scheduler(in, out, s)
+}
+
+func autoConvert_api_SchedulerCondition_To_v1_SchedulerCondition(in *api.SchedulerCondition, out *SchedulerCondition, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*api.SchedulerCondition))(in)
+	}
+	out.Type = SchedulerConditionType(in.Type)
+	out.Status = ConditionStatus(in.Status)
+	if err := api.Convert_unversioned_Time_To_unversioned_Time(&in.LastHeartbeatTime, &out.LastHeartbeatTime, s); err != nil {
+		return err
+	}
+	if err := api.Convert_unversioned_Time_To_unversioned_Time(&in.LastTransitionTime, &out.LastTransitionTime, s); err != nil {
+		return err
+	}
+	out.Reason = in.Reason
+	out.Message = in.Message
+	return nil
+}
+
+func Convert_api_SchedulerCondition_To_v1_SchedulerCondition(in *api.SchedulerCondition, out *SchedulerCondition, s conversion.Scope) error {
+	return autoConvert_api_SchedulerCondition_To_v1_SchedulerCondition(in, out, s)
+}
+
+func autoConvert_api_SchedulerList_To_v1_SchedulerList(in *api.SchedulerList, out *SchedulerList, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*api.SchedulerList))(in)
+	}
+	if err := api.Convert_unversioned_ListMeta_To_unversioned_ListMeta(&in.ListMeta, &out.ListMeta, s); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		out.Items = make([]Scheduler, len(in.Items))
+		for i := range in.Items {
+			if err := Convert_api_Scheduler_To_v1_Scheduler(&in.Items[i], &out.Items[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
+func Convert_api_SchedulerList_To_v1_SchedulerList(in *api.SchedulerList, out *SchedulerList, s conversion.Scope) error {
+	return autoConvert_api_SchedulerList_To_v1_SchedulerList(in, out, s)
+}
+
+func autoConvert_api_SchedulerSpec_To_v1_SchedulerSpec(in *api.SchedulerSpec, out *SchedulerSpec, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*api.SchedulerSpec))(in)
+	}
+	out.SchedulerType = in.SchedulerType
+	return nil
+}
+
+func Convert_api_SchedulerSpec_To_v1_SchedulerSpec(in *api.SchedulerSpec, out *SchedulerSpec, s conversion.Scope) error {
+	return autoConvert_api_SchedulerSpec_To_v1_SchedulerSpec(in, out, s)
+}
+
+func autoConvert_api_SchedulerStatus_To_v1_SchedulerStatus(in *api.SchedulerStatus, out *SchedulerStatus, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*api.SchedulerStatus))(in)
+	}
+	out.Phase = SchedulerPhase(in.Phase)
+	if in.Conditions != nil {
+		out.Conditions = make([]SchedulerCondition, len(in.Conditions))
+		for i := range in.Conditions {
+			if err := Convert_api_SchedulerCondition_To_v1_SchedulerCondition(&in.Conditions[i], &out.Conditions[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Conditions = nil
+	}
+	return nil
+}
+
+func Convert_api_SchedulerStatus_To_v1_SchedulerStatus(in *api.SchedulerStatus, out *SchedulerStatus, s conversion.Scope) error {
+	return autoConvert_api_SchedulerStatus_To_v1_SchedulerStatus(in, out, s)
+}
+
 func autoConvert_api_Secret_To_v1_Secret(in *api.Secret, out *Secret, s conversion.Scope) error {
 	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
 		defaulting.(func(*api.Secret))(in)
@@ -5961,6 +6060,105 @@ func Convert_v1_SELinuxOptions_To_api_SELinuxOptions(in *SELinuxOptions, out *ap
 	return autoConvert_v1_SELinuxOptions_To_api_SELinuxOptions(in, out, s)
 }
 
+func autoConvert_v1_Scheduler_To_api_Scheduler(in *Scheduler, out *api.Scheduler, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*Scheduler))(in)
+	}
+	if err := Convert_v1_ObjectMeta_To_api_ObjectMeta(&in.ObjectMeta, &out.ObjectMeta, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_SchedulerSpec_To_api_SchedulerSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_SchedulerStatus_To_api_SchedulerStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Convert_v1_Scheduler_To_api_Scheduler(in *Scheduler, out *api.Scheduler, s conversion.Scope) error {
+	return autoConvert_v1_Scheduler_To_api_Scheduler(in, out, s)
+}
+
+func autoConvert_v1_SchedulerCondition_To_api_SchedulerCondition(in *SchedulerCondition, out *api.SchedulerCondition, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*SchedulerCondition))(in)
+	}
+	out.Type = api.SchedulerConditionType(in.Type)
+	out.Status = api.ConditionStatus(in.Status)
+	if err := api.Convert_unversioned_Time_To_unversioned_Time(&in.LastHeartbeatTime, &out.LastHeartbeatTime, s); err != nil {
+		return err
+	}
+	if err := api.Convert_unversioned_Time_To_unversioned_Time(&in.LastTransitionTime, &out.LastTransitionTime, s); err != nil {
+		return err
+	}
+	out.Reason = in.Reason
+	out.Message = in.Message
+	return nil
+}
+
+func Convert_v1_SchedulerCondition_To_api_SchedulerCondition(in *SchedulerCondition, out *api.SchedulerCondition, s conversion.Scope) error {
+	return autoConvert_v1_SchedulerCondition_To_api_SchedulerCondition(in, out, s)
+}
+
+func autoConvert_v1_SchedulerList_To_api_SchedulerList(in *SchedulerList, out *api.SchedulerList, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*SchedulerList))(in)
+	}
+	if err := api.Convert_unversioned_ListMeta_To_unversioned_ListMeta(&in.ListMeta, &out.ListMeta, s); err != nil {
+		return err
+	}
+	if in.Items != nil {
+		out.Items = make([]api.Scheduler, len(in.Items))
+		for i := range in.Items {
+			if err := Convert_v1_Scheduler_To_api_Scheduler(&in.Items[i], &out.Items[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
+	return nil
+}
+
+func Convert_v1_SchedulerList_To_api_SchedulerList(in *SchedulerList, out *api.SchedulerList, s conversion.Scope) error {
+	return autoConvert_v1_SchedulerList_To_api_SchedulerList(in, out, s)
+}
+
+func autoConvert_v1_SchedulerSpec_To_api_SchedulerSpec(in *SchedulerSpec, out *api.SchedulerSpec, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*SchedulerSpec))(in)
+	}
+	out.SchedulerType = in.SchedulerType
+	return nil
+}
+
+func Convert_v1_SchedulerSpec_To_api_SchedulerSpec(in *SchedulerSpec, out *api.SchedulerSpec, s conversion.Scope) error {
+	return autoConvert_v1_SchedulerSpec_To_api_SchedulerSpec(in, out, s)
+}
+
+func autoConvert_v1_SchedulerStatus_To_api_SchedulerStatus(in *SchedulerStatus, out *api.SchedulerStatus, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*SchedulerStatus))(in)
+	}
+	out.Phase = api.SchedulerPhase(in.Phase)
+	if in.Conditions != nil {
+		out.Conditions = make([]api.SchedulerCondition, len(in.Conditions))
+		for i := range in.Conditions {
+			if err := Convert_v1_SchedulerCondition_To_api_SchedulerCondition(&in.Conditions[i], &out.Conditions[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Conditions = nil
+	}
+	return nil
+}
+
+func Convert_v1_SchedulerStatus_To_api_SchedulerStatus(in *SchedulerStatus, out *api.SchedulerStatus, s conversion.Scope) error {
+	return autoConvert_v1_SchedulerStatus_To_api_SchedulerStatus(in, out, s)
+}
+
 func autoConvert_v1_Secret_To_api_Secret(in *Secret, out *api.Secret, s conversion.Scope) error {
 	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
 		defaulting.(func(*Secret))(in)
@@ -6629,6 +6827,11 @@ func init() {
 		autoConvert_api_ResourceQuota_To_v1_ResourceQuota,
 		autoConvert_api_ResourceRequirements_To_v1_ResourceRequirements,
 		autoConvert_api_SELinuxOptions_To_v1_SELinuxOptions,
+		autoConvert_api_SchedulerCondition_To_v1_SchedulerCondition,
+		autoConvert_api_SchedulerList_To_v1_SchedulerList,
+		autoConvert_api_SchedulerSpec_To_v1_SchedulerSpec,
+		autoConvert_api_SchedulerStatus_To_v1_SchedulerStatus,
+		autoConvert_api_Scheduler_To_v1_Scheduler,
 		autoConvert_api_SecretKeySelector_To_v1_SecretKeySelector,
 		autoConvert_api_SecretList_To_v1_SecretList,
 		autoConvert_api_SecretVolumeSource_To_v1_SecretVolumeSource,
@@ -6761,6 +6964,11 @@ func init() {
 		autoConvert_v1_ResourceQuota_To_api_ResourceQuota,
 		autoConvert_v1_ResourceRequirements_To_api_ResourceRequirements,
 		autoConvert_v1_SELinuxOptions_To_api_SELinuxOptions,
+		autoConvert_v1_SchedulerCondition_To_api_SchedulerCondition,
+		autoConvert_v1_SchedulerList_To_api_SchedulerList,
+		autoConvert_v1_SchedulerSpec_To_api_SchedulerSpec,
+		autoConvert_v1_SchedulerStatus_To_api_SchedulerStatus,
+		autoConvert_v1_Scheduler_To_api_Scheduler,
 		autoConvert_v1_SecretKeySelector_To_api_SecretKeySelector,
 		autoConvert_v1_SecretList_To_api_SecretList,
 		autoConvert_v1_SecretVolumeSource_To_api_SecretVolumeSource,

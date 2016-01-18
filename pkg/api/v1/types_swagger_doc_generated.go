@@ -1393,6 +1393,55 @@ func (SELinuxOptions) SwaggerDoc() map[string]string {
 	return map_SELinuxOptions
 }
 
+var map_Scheduler = map[string]string{
+	"metadata": "Standard object's metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
+	"status":   "Most recently observed status of the scheduler. Populated by the system. Read-only. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#spec-and-status",
+}
+
+func (Scheduler) SwaggerDoc() map[string]string {
+	return map_Scheduler
+}
+
+var map_SchedulerCondition = map[string]string{
+	"":                   "SchedulerCondition contains condition infromation for a scheduler.",
+	"type":               "Type of scheduler condition, currently only Ready.",
+	"status":             "Status of the condition, one of True, False, Unknown.",
+	"lastHeartbeatTime":  "Last time we got an update on a given condition.",
+	"lastTransitionTime": "Last time the condition transit from one status to another.",
+	"reason":             "(brief) reason for the condition's last transition.",
+	"message":            "Human readable message indicating details about last transition.",
+}
+
+func (SchedulerCondition) SwaggerDoc() map[string]string {
+	return map_SchedulerCondition
+}
+
+var map_SchedulerList = map[string]string{
+	"":         "SchedulerList is the whole list of all Schedulers which have been registered with master.",
+	"metadata": "Standard list metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#types-kinds",
+	"items":    "List of scheduler",
+}
+
+func (SchedulerList) SwaggerDoc() map[string]string {
+	return map_SchedulerList
+}
+
+var map_SchedulerSpec = map[string]string{
+	"": "SchedulerSpec describes the attributes that a scheduler is created with.",
+}
+
+func (SchedulerSpec) SwaggerDoc() map[string]string {
+	return map_SchedulerSpec
+}
+
+var map_SchedulerStatus = map[string]string{
+	"": "SchedulerStatus is information about the current status of a scheduler.",
+}
+
+func (SchedulerStatus) SwaggerDoc() map[string]string {
+	return map_SchedulerStatus
+}
+
 var map_Secret = map[string]string{
 	"":         "Secret holds secret data of a certain type. The total bytes of the values in the Data field must be less than MaxSecretSize bytes.",
 	"metadata": "Standard object's metadata. More info: http://releases.k8s.io/release-1.2/docs/devel/api-conventions.md#metadata",
