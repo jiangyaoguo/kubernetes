@@ -19,20 +19,27 @@ package scheduler
 import (
 	"fmt"
 	"sync"
-
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/cache"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/util"
-	"k8s.io/kubernetes/pkg/util/wait"
+	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/client/cache"
+	client "k8s.io/kubernetes/pkg/client/unversioned"
+	"k8s.io/kubernetes/pkg/controller"
+	"k8s.io/kubernetes/pkg/controller/framework"
+	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/util"
+	"k8s.io/kubernetes/pkg/util/wait"
+	"k8s.io/kubernetes/pkg/watch"
 )
 
 const (
 	schedulerTypeFeild = "scheduler.alpha.kubernetes.io/type"
 	schedulerIdFeild   = "scheduler.alpha.kubernetes.io/name"
+	// schedulerStatusUpdateRetry controls the number of retries of writing SchedulerStatus update.
+	schedulerStatusUpdateRetry = 5
 )
 
 type schedulerPool struct {
@@ -42,35 +49,58 @@ type schedulerPool struct {
 }
 
 type SchedulerController struct {
-	Client *client.Client
+	kubeClient *client.Client
 	// queue for pods that need scheduling
 	PodQueue *cache.FIFO
+	// scheduler store and controller
+	schedulerController *framework.Controller
+	schedulerStore      cache.StoreToScheduler
 	// store all available scheduler
 	schedulerCluster map[string]*schedulerPool
+	schedulerNum     int
 	lock             sync.RWMutex
+
+	now func() unversioned.Time
 
 	NextPod func() *api.Pod
 	// Close this to stop all reflectors
 	StopEverything chan struct{}
 	// Rate limiter for assign pods to scheduler
 	AssignPodsRateLimiter util.RateLimiter
+
+	schedulerMonitorPeriod time.Duration
+	schedulerLostPeriod    time.Duration
 }
 
 func NewSchedulerController(client *client.Client) *SchedulerController {
 	sc := &SchedulerController{
-		Client:                client,
-		PodQueue:              cache.NewFIFO(cache.MetaNamespaceKeyFunc),
-		schedulerCluster:      make(map[string]*schedulerPool),
-		AssignPodsRateLimiter: util.NewTokenBucketRateLimiter(50.0, 100),
-		StopEverything:        make(chan struct{}),
+		kubeClient:             client,
+		PodQueue:               cache.NewFIFO(cache.MetaNamespaceKeyFunc),
+		schedulerCluster:       make(map[string]*schedulerPool),
+		AssignPodsRateLimiter:  util.NewTokenBucketRateLimiter(50.0, 100),
+		StopEverything:         make(chan struct{}),
+		schedulerMonitorPeriod: 2 * time.Second,
+		schedulerLostPeriod:    15 * time.Second,
 	}
 	// Watch and queue pods that need scheduling.
 	cache.NewReflector(sc.createUnassignedPodLW(), &api.Pod{}, sc.PodQueue, 0).RunUntil(sc.StopEverything)
 
-	// Add fake scheduler
-	sc.RegistryScheduler("faketype", "fakescheduler1")
-	sc.RegistryScheduler("faketype", "fakescheduler2")
-	sc.RegistryScheduler("faketype", "fakescheduler3")
+	sc.schedulerStore.Store, sc.schedulerController = framework.NewInformer(
+		&cache.ListWatch{
+			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
+				return sc.kubeClient.Schedulers().List(options)
+			},
+			WatchFunc: func(options api.ListOptions) (watch.Interface, error) {
+				return sc.kubeClient.Schedulers().Watch(options)
+			},
+		},
+		&api.Scheduler{},
+		controller.NoResyncPeriodFunc(),
+		framework.ResourceEventHandlerFuncs{
+		//AddFunc:    sc.AddAvailableScheduler,
+		//DeleteFunc: sc.RemoveScheduler,
+		},
+	)
 
 	return sc
 }
@@ -86,11 +116,17 @@ func (sc *SchedulerController) nextPod() *api.Pod {
 // TODO: combine this with configfactory.createUnassignedPodLW in /plugin/scheduler/factory package
 func (sc *SchedulerController) createUnassignedPodLW() *cache.ListWatch {
 	selector := fields.ParseSelectorOrDie("spec.nodeName==" + "" + ",status.phase!=" + string(api.PodSucceeded) + ",status.phase!=" + string(api.PodFailed))
-	return cache.NewListWatchFromClient(sc.Client, "pods", api.NamespaceAll, selector)
+	return cache.NewListWatchFromClient(sc.kubeClient, "pods", api.NamespaceAll, selector)
 }
 
 func (sc *SchedulerController) Run() {
 	go wait.Until(sc.assignOne, 0, sc.StopEverything)
+
+	go wait.Until(func() {
+		if err := sc.monitorSchedulerStatus(); err != nil {
+			glog.Errorf("Error monitoring scheduler status: %v", err)
+		}
+	}, sc.schedulerMonitorPeriod, wait.NeverStop)
 }
 
 func (sc *SchedulerController) assignOne() {
@@ -154,34 +190,137 @@ func (sc *SchedulerController) nextScheduler(pod *api.Pod) (string, error) {
 func (sc *SchedulerController) assignPodToScheduler(pod *api.Pod, schedulerId string) error {
 	// update schedulerId in anotaion
 	pod.Annotations[schedulerIdFeild] = schedulerId
-	pod, err := sc.Client.Pods(pod.Namespace).Update(pod)
+	pod, err := sc.kubeClient.Pods(pod.Namespace).Update(pod)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (sc *SchedulerController) RegistryScheduler(schedulerType string, schedulerId string) error {
-	if spl, exist := sc.schedulerCluster[schedulerType]; exist {
-		spl.schedulerList = append(spl.schedulerList, schedulerId)
+func (sc *SchedulerController) AddAvailableScheduler(obj interface{}) {
+	scheduler, ok := obj.(*api.Scheduler)
+	if !ok {
+		return
+	}
+
+	sc.lock.Lock()
+	defer sc.lock.Unlock()
+
+	if spl, exist := sc.schedulerCluster[scheduler.Spec.SchedulerType]; exist {
+		spl.schedulerList = append(spl.schedulerList, scheduler.Name)
+
 	} else {
-		sc.schedulerCluster[schedulerType] = &schedulerPool{
-			schedulerType: schedulerType,
-			schedulerList: []string{schedulerId},
+		sc.schedulerCluster[scheduler.Spec.SchedulerType] = &schedulerPool{
+			schedulerType: scheduler.Spec.SchedulerType,
+			schedulerList: []string{scheduler.Name},
 			index:         0,
+		}
+	}
+	sc.schedulerNum = sc.schedulerNum + 1
+	glog.Infof("Add new scheduler %s", scheduler.Name)
+}
+
+func (sc *SchedulerController) RemoveScheduler(obj interface{}) {
+	scheduler, ok := obj.(*api.Scheduler)
+	if !ok {
+		return
+	}
+
+	sc.lock.Lock()
+	defer sc.lock.Unlock()
+
+	if spl, exist := sc.schedulerCluster[scheduler.Spec.SchedulerType]; exist {
+		for index, id := range spl.schedulerList {
+			if id == scheduler.Name {
+				spl.schedulerList = append(spl.schedulerList[:index], spl.schedulerList[index+1:]...)
+			}
+		}
+		sc.schedulerNum = sc.schedulerNum - 1
+		glog.Infof("Remove scheduler %s", scheduler.Name)
+		return
+	} else {
+		glog.Errorf("Remove scheduler: %s with non-exist type: %s", scheduler.Name, scheduler.Spec.SchedulerType)
+	}
+}
+
+func (sc *SchedulerController) monitorSchedulerStatus() error {
+	schedulers, err := sc.kubeClient.Schedulers().List(api.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for i := range schedulers.Items {
+		if !sc.hasScheduler(schedulers.Items[i].Name) {
+			glog.Infof("SchedulerController observed a new scheduler: %v", schedulers.Items[i])
+			//sc.AddAvailableScheduler(scheduler.Items[i])
+		}
+	}
+
+	for i := range schedulers.Items {
+		scheduler := &schedulers.Items[i]
+
+		statusChanged := false
+		rep := 0
+		for ; rep < schedulerStatusUpdateRetry; rep++ {
+			if scheduler.Status.Phase == api.SchedulerRunning {
+				for i := range scheduler.Status.Conditions {
+					if time.Now().Sub(scheduler.Status.Conditions[i].LastHeartbeatTime.Time) >= sc.schedulerLostPeriod {
+						scheduler.Status.Phase = api.SchedulerTerminated
+						if sc.hasScheduler(scheduler.Name) {
+							sc.RemoveScheduler(scheduler)
+						}
+						statusChanged = true
+					}
+				}
+			} else {
+				for i := range scheduler.Status.Conditions {
+					lastLiveTime := scheduler.Status.Conditions[i].LastHeartbeatTime.Time
+					checkLiveTime := time.Now()
+					if scheduler.Status.Conditions[i].Type == api.SchedulerReady && checkLiveTime.Sub(lastLiveTime) < sc.schedulerLostPeriod {
+						if scheduler.Status.Phase != api.SchedulerRunning {
+							scheduler.Status.Phase = api.SchedulerRunning
+							if !sc.hasScheduler(scheduler.Name) {
+								sc.AddAvailableScheduler(scheduler)
+							}
+							statusChanged = true
+							break
+						}
+					}
+				}
+
+			}
+			if statusChanged {
+				_, err = sc.kubeClient.Schedulers().UpdateStatus(scheduler)
+				if err == nil {
+					glog.Infof("Update scheduler %v status (%v) succesfully", scheduler.Name, scheduler.Status.Phase)
+					break
+				} else {
+					glog.Errorf("Update scheduler %v status (%v) failed: %v", scheduler.Name, scheduler.Status.Phase, err.Error())
+				}
+			}
+		}
+		if rep > schedulerStatusUpdateRetry {
+			glog.Errorf("After %v tries, Update scheduler %v status (%v) still failed. Skip update.", rep, scheduler.Name, scheduler.Status.Phase)
 		}
 	}
 	return nil
 }
-func (sc *SchedulerController) RemoveScheduler(schedulerType string, schedulerId string) error {
-	if spl, exist := sc.schedulerCluster[schedulerType]; exist {
-		for index, id := range spl.schedulerList {
-			if id == schedulerId {
-				spl.schedulerList = append(spl.schedulerList[:index], spl.schedulerList[index+1:]...)
+
+func (sc *SchedulerController) hasScheduler(name string) bool {
+	exsit := false
+	for _, schedulerSets := range sc.schedulerCluster {
+		for _, scheduler := range schedulerSets.schedulerList {
+			if scheduler == name {
+				exsit = true
+				break
 			}
 		}
-		return nil
-	} else {
-		return fmt.Errorf("Remove scheduler: %s with non-exist type: %s", schedulerId, schedulerType)
 	}
+	return exsit
+}
+
+func (sc *SchedulerController) getSchedulerNum() int {
+	sc.lock.Lock()
+	defer sc.lock.Unlock()
+
+	return sc.schedulerNum
 }

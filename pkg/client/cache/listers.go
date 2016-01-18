@@ -556,3 +556,14 @@ func (s *StoreToPVCFetcher) GetPersistentVolumeClaimInfo(namespace string, id st
 
 	return o.(*api.PersistentVolumeClaim), nil
 }
+
+type StoreToScheduler struct {
+	Store
+}
+
+func (s *StoreToScheduler) List() (schedulers api.SchedulerList, err error) {
+	for _, m := range s.Store.List() {
+		schedulers.Items = append(schedulers.Items, *(m.(*api.Scheduler)))
+	}
+	return schedulers, nil
+}
