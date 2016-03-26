@@ -29,6 +29,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/framework"
 	"k8s.io/kubernetes/pkg/fields"
+	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util"
 	"k8s.io/kubernetes/pkg/util/wait"
@@ -51,14 +52,17 @@ type schedulerPool struct {
 type SchedulerController struct {
 	kubeClient *client.Client
 	// queue for pods that need scheduling
-	PodQueue *cache.FIFO
+	PodQueue             *cache.FIFO
+	UnScheduledPodLister cache.StoreToPodLister
 	// scheduler store and controller
 	schedulerController *framework.Controller
 	schedulerStore      cache.StoreToScheduler
 	// store all available scheduler
-	schedulerCluster map[string]*schedulerPool
-	schedulerNum     int
-	lock             sync.RWMutex
+	schedulerCluster   map[string]*schedulerPool
+	coolDownSchedulers []string
+	schedulerNum       int
+	schedulerlock      sync.RWMutex
+	coolDownlock       sync.RWMutex
 
 	now func() unversioned.Time
 
@@ -69,21 +73,30 @@ type SchedulerController struct {
 	AssignPodsRateLimiter util.RateLimiter
 
 	schedulerMonitorPeriod time.Duration
-	schedulerLostPeriod    time.Duration
+	// If scheduler has no heartbeat for schedulerLostPeriod, it will be considered to be lost.
+	schedulerLostPeriod time.Duration
+	// Once a scheduler was lost, it wouldn't be registered after schedulerCoolDownPeriod.
+	schedulerCoolDownPeriod time.Duration
 }
 
 func NewSchedulerController(client *client.Client) *SchedulerController {
 	sc := &SchedulerController{
-		kubeClient:             client,
-		PodQueue:               cache.NewFIFO(cache.MetaNamespaceKeyFunc),
-		schedulerCluster:       make(map[string]*schedulerPool),
-		AssignPodsRateLimiter:  util.NewTokenBucketRateLimiter(50.0, 100),
-		StopEverything:         make(chan struct{}),
-		schedulerMonitorPeriod: 2 * time.Second,
-		schedulerLostPeriod:    15 * time.Second,
+		kubeClient: client,
+		PodQueue:   cache.NewFIFO(cache.MetaNamespaceKeyFunc),
+		UnScheduledPodLister: cache.StoreToPodLister{
+			Store: cache.NewStore(cache.MetaNamespaceKeyFunc),
+		},
+		schedulerCluster:        make(map[string]*schedulerPool),
+		AssignPodsRateLimiter:   util.NewTokenBucketRateLimiter(50.0, 100),
+		StopEverything:          make(chan struct{}),
+		schedulerMonitorPeriod:  2 * time.Second,
+		schedulerLostPeriod:     15 * time.Second,
+		schedulerCoolDownPeriod: 5 * time.Second,
 	}
 	// Watch and queue pods that need scheduling.
 	cache.NewReflector(sc.createUnassignedPodLW(), &api.Pod{}, sc.PodQueue, 0).RunUntil(sc.StopEverything)
+
+	cache.NewReflector(sc.createUnassignedPodLW(), &api.Pod{}, sc.UnScheduledPodLister.Store, 0).RunUntil(sc.StopEverything)
 
 	sc.schedulerStore.Store, sc.schedulerController = framework.NewInformer(
 		&cache.ListWatch{
@@ -127,15 +140,17 @@ func (sc *SchedulerController) Run() {
 			glog.Errorf("Error monitoring scheduler status: %v", err)
 		}
 	}, sc.schedulerMonitorPeriod, wait.NeverStop)
+
+	go wait.Until(sc.clearPodsOnLostScheduler, sc.schedulerMonitorPeriod, sc.StopEverything)
 }
 
 func (sc *SchedulerController) assignOne() {
 	glog.Errorf("SchedulerController ready to get pod")
 	pod := sc.nextPod()
-	needAssign := sc.needAssignScheduler(pod)
+	needAssign := needAssignScheduler(pod)
 	for !needAssign {
 		pod := sc.nextPod()
-		needAssign = sc.needAssignScheduler(pod)
+		needAssign = needAssignScheduler(pod)
 	}
 	if sc.AssignPodsRateLimiter != nil {
 		sc.AssignPodsRateLimiter.Accept()
@@ -153,7 +168,7 @@ func (sc *SchedulerController) assignOne() {
 	}
 }
 
-func (sc *SchedulerController) needAssignScheduler(pod *api.Pod) bool {
+func needAssignScheduler(pod *api.Pod) bool {
 	if _, exist := pod.Annotations[schedulerTypeFeild]; !exist {
 		return false
 	}
@@ -170,8 +185,8 @@ func (sc *SchedulerController) needAssignScheduler(pod *api.Pod) bool {
 }
 
 func (sc *SchedulerController) nextScheduler(pod *api.Pod) (string, error) {
-	sc.lock.Lock()
-	defer sc.lock.Unlock()
+	sc.schedulerlock.Lock()
+	defer sc.schedulerlock.Unlock()
 
 	schedulerType, exist := pod.Annotations[schedulerTypeFeild]
 	if !exist {
@@ -203,8 +218,8 @@ func (sc *SchedulerController) AddAvailableScheduler(obj interface{}) {
 		return
 	}
 
-	sc.lock.Lock()
-	defer sc.lock.Unlock()
+	sc.schedulerlock.Lock()
+	defer sc.schedulerlock.Unlock()
 
 	if spl, exist := sc.schedulerCluster[scheduler.Spec.SchedulerType]; exist {
 		spl.schedulerList = append(spl.schedulerList, scheduler.Name)
@@ -220,14 +235,14 @@ func (sc *SchedulerController) AddAvailableScheduler(obj interface{}) {
 	glog.Infof("Add new scheduler %s", scheduler.Name)
 }
 
-func (sc *SchedulerController) RemoveScheduler(obj interface{}) {
+func (sc *SchedulerController) RemoveScheduler(obj interface{}) error {
 	scheduler, ok := obj.(*api.Scheduler)
 	if !ok {
-		return
+		return fmt.Errorf("Receive unkonwn object when remove scheduler.")
 	}
 
-	sc.lock.Lock()
-	defer sc.lock.Unlock()
+	sc.schedulerlock.Lock()
+	defer sc.schedulerlock.Unlock()
 
 	if spl, exist := sc.schedulerCluster[scheduler.Spec.SchedulerType]; exist {
 		for index, id := range spl.schedulerList {
@@ -237,10 +252,19 @@ func (sc *SchedulerController) RemoveScheduler(obj interface{}) {
 		}
 		sc.schedulerNum = sc.schedulerNum - 1
 		glog.Infof("Remove scheduler %s", scheduler.Name)
-		return
+
+		//Clean up pods scheduled to the lost scheduler.
+
+		return nil
 	} else {
-		glog.Errorf("Remove scheduler: %s with non-exist type: %s", scheduler.Name, scheduler.Spec.SchedulerType)
+		return fmt.Errorf("Remove scheduler: %s with non-exist type: %s", scheduler.Name, scheduler.Spec.SchedulerType)
 	}
+
+	// Add scheduler to gc targets.
+	sc.coolDownlock.Lock()
+	sc.coolDownSchedulers = append(sc.coolDownSchedulers, scheduler)
+	sc.coolDownlock.Unlock()
+
 }
 
 func (sc *SchedulerController) monitorSchedulerStatus() error {
@@ -319,8 +343,29 @@ func (sc *SchedulerController) hasScheduler(name string) bool {
 }
 
 func (sc *SchedulerController) getSchedulerNum() int {
-	sc.lock.Lock()
-	defer sc.lock.Unlock()
+	sc.schedulerlock.Lock()
+	defer sc.schedulerlock.Unlock()
 
 	return sc.schedulerNum
+}
+
+func (sc *SchedulerController) clearPodsOnLostScheduler() {
+	pods, err := sc.UnScheduledPodLister.List(labels.Everything())
+	if err != nil {
+		return
+	}
+	for _, pod := range pods {
+		if !needAssignScheduler(pod) {
+			scheduler := pod.Annotations[schedulerIdFeild]
+			sc.coolDownlock.Lock()
+			lostSchedulers := sc.coolDownSchedulers
+			sc.coolDownlock.Unlock()
+			for _, lost := range lostSchedulers {
+				if scheduler == lost {
+					sc.assignPodToScheduler(pod, "")
+					break
+				}
+			}
+		}
+	}
 }
